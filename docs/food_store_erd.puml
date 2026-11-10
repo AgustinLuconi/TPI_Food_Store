@@ -1,0 +1,649 @@
+@startuml food_store_erd
+' ============================================================================
+'   FOOD STORE - Diagrama Entidad-Relacion (ERD)
+'   3FN/1FN estricta - Spec-Driven Development (SDD)
+'   ORM destino: SQLModel (SQLAlchemy) sobre PostgreSQL 16
+'
+'   Decisiones de modelado:
+'    1. EXCLUSIVE ARCS en lugar de FK polimorficas:
+'       MovimientoStock: pedido_id XOR orden_produccion_id (CHECK <= 1)
+'       OrdenProduccion: producto_id XOR ingrediente_id (CHECK = 1)
+'       SQLModel: columnas FK nullables + CheckConstraint en ~__table_args~__.
+'    2. 1FN: las exclusiones de un DetallePedido se guardan en la tabla
+'       pivote DetallePedidoExclusion con FK reales.
+'    3. Geoespacial: ZonaCobertura.poligono en JSONB; la logica
+'       point-in-polygon/Haversine queda aislada tras el puerto
+'       CoberturaRepository (migrable a PostGIS). Tarifas en DECIMAL(10,2).
+'    4. BOM multiescala: Ingrediente.es_elaborado + RecetaIngrediente
+'       (receta entre insumos) + OrdenProduccion que produce un Producto
+'       final o un Ingrediente elaborado (ej. salsa base, masa madre).
+'
+'   Leyenda de constraints inline:
+'     {PK}            clave primaria
+'     {FK}            clave foranea
+'     {UQ}            unique constraint
+'     {NN}            NOT NULL
+'     {IX}            indice explicito
+'     {snap}          snapshot inmutable desde la creacion
+'     {CHECK ...}     constraint de valor
+'     {DEFAULT x}     valor por defecto
+'     {append-only}   tabla ledger: solo INSERT, nunca UPDATE ni DELETE
+'     {bcrypt}        hash bcrypt, cost >= 12, nunca plaintext
+'     {SHA-256}       hash SHA-256, nunca plaintext
+'     {seed}          registro obligatorio en app/db/seed.py
+'     {derived}       calculado por agregacion sobre el ledger, no almacenado
+'     {cache}         cache de solo lectura; la verdad es el ledger
+'     {xor}           exclusive arc: CHECK num_nonnulls(grupo) <= 1 (o = 1)
+'
+'   Notacion de relaciones:
+'     *--  composicion  -> ON DELETE CASCADE
+'     o--  asociacion   -> ON DELETE RESTRICT / SET NULL
+'     ..>  dependencia logica (regla de negocio, sin FK fisica)
+'
+'   Estereotipos:
+'     <<Table>>    entidad mutable (soft-delete si aplica)
+'     <<Link>>     tabla pivote N:M
+'     <<Catalog>>  catalogo de referencia (seed data obligatorio)
+'     <<Append>>   tabla append-only (solo INSERT)
+'     <<Session>>  gestion de sesion de autenticacion
+'     <<Config>>   configuracion operativa del negocio
+'     <<Enum>>     enumeracion de dominio (tipo ENUM PostgreSQL, no tabla)
+' ============================================================================
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #455A64
+    BorderThickness 2
+    HeaderBackgroundColor #ECEFF1
+    FontColor #1A237E
+    FontStyle bold
+    FontSize 14
+    AttributeFontColor #212121
+    AttributeFontSize 11
+    StereotypeFontColor #004D40
+    StereotypeFontSize 10
+}
+
+skinparam package {
+    BackgroundColor #FAFAFA
+    BorderColor #B0BEC5
+    BorderThickness 2
+    FontColor #1A237E
+    FontStyle bold
+    FontSize 13
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #F57F17
+    FontColor #3E2723
+    FontSize 10
+}
+
+' ============================================================================
+'  DOMINIO 1 - IDENTIDAD & ACCESO
+' ============================================================================
+package "Dominio 1 - Identidad & Acceso" #EDE7F6 {
+
+    class Usuario <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Datos personales ..
+        + nombre               : VARCHAR(80)         {NN}
+        + apellido             : VARCHAR(80)         {NN}
+        + email                : VARCHAR(254)        {UQ, NN, IX}
+        + telefono             : VARCHAR(30)
+        + password_hash        : CHAR(60)            {NN, bcrypt}
+        .. Estado de cuenta ..
+        + disabled             : BOOLEAN             {NN, DEFAULT false}
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + updated_at           : TIMESTAMPTZ         {NN}
+        + deleted_at           : TIMESTAMPTZ         {IX}
+    }
+
+    class Rol <<Catalog>> {
+        .. PK semantica ..
+        + codigo               : VARCHAR(20)         {PK, seed}
+        .. Atributos ..
+        + nombre               : VARCHAR(80)         {NN}
+        + descripcion          : TEXT
+    }
+    note right of Rol
+      Seed obligatorio (app/db/seed.py):
+      ADMIN - acceso total
+      STOCK - inventario y produccion
+      PEDIDOS - estados CONFIRMADO->ENTREGADO
+      CLIENT - solo sus propios datos
+    end note
+
+    class UsuarioRol <<Link>> {
+        .. PK compuesta ..
+        + usuario_id           : BIGINT              {PK, FK -> Usuario.id}
+        + rol_codigo           : VARCHAR(20)         {PK, FK -> Rol.codigo}
+        .. Auditoria de asignacion ..
+        + asignado_por_id      : BIGINT              {FK -> Usuario.id, NULL}
+        + asignado_at          : TIMESTAMPTZ         {NN}
+    }
+
+    class RefreshToken <<Session>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + usuario_id           : BIGINT              {FK -> Usuario.id, NN, IX}
+        .. Atributos ..
+        + token_hash           : CHAR(64)            {UQ, NN, IX, SHA-256}
+        + expires_at           : TIMESTAMPTZ         {NN}
+        + revoked_at           : TIMESTAMPTZ
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+    }
+
+    class DireccionEntrega <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + usuario_id           : BIGINT              {FK -> Usuario.id, NN, IX}
+        .. Atributos ..
+        + alias                : VARCHAR(50)
+        + linea1               : TEXT                {NN}
+        + linea2               : TEXT
+        + ciudad               : VARCHAR(100)
+        + provincia            : VARCHAR(100)
+        + codigo_postal        : VARCHAR(20)
+        + lat                  : DOUBLE PRECISION
+        + lng                  : DOUBLE PRECISION
+        + es_principal         : BOOLEAN             {NN, DEFAULT false}
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + deleted_at           : TIMESTAMPTZ         {IX}
+    }
+}
+
+' ============================================================================
+'  DOMINIO 2 - CATALOGO & INVENTARIO (Event Sourcing, doble ledger)
+' ============================================================================
+package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
+
+    class Categoria <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK auto-referencia ..
+        + parent_id            : BIGINT              {FK -> Categoria.id, NULL, IX}
+        .. Atributos ..
+        + nombre               : VARCHAR(100)        {NN, IX}
+        + descripcion          : TEXT
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + deleted_at           : TIMESTAMPTZ         {IX}
+    }
+
+    class Producto <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Identificacion ..
+        + nombre               : VARCHAR(200)        {NN, IX}
+        + descripcion          : TEXT
+        + imagen_url           : VARCHAR(500)
+        .. Precios ..
+        + precio_base          : DECIMAL(10,2)       {NN, CHECK >= 0}
+        .. Visibilidad comercial ..
+        + disponible           : BOOLEAN             {NN, DEFAULT true}
+        .. Inventario ..
+        + stock_minimo         : INTEGER             {NN, DEFAULT 0, CHECK >= 0}
+        + stock_cantidad       : INTEGER             {cache, CHECK >= 0}
+        + stock_real           : DECIMAL(12,3)       {derived}
+        + stock_disponible     : DECIMAL(12,3)       {derived}
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + updated_at           : TIMESTAMPTZ         {NN}
+        + deleted_at           : TIMESTAMPTZ         {IX}
+    }
+    note right of Producto
+      Fuente de verdad del stock: el ledger
+      MovimientoStock. stock_real y
+      stock_disponible se derivan por agregacion.
+      disponible es visibilidad comercial,
+      independiente del stock.
+    end note
+
+    class ProductoCategoria <<Link>> {
+        .. PK compuesta ..
+        + producto_id          : BIGINT              {PK, FK -> Producto.id}
+        + cat_id               : BIGINT              {PK, FK -> Categoria.id}
+        .. Atributos ..
+        + es_principal         : BOOLEAN             {NN, DEFAULT false}
+    }
+
+    class Ingrediente <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Atributos ..
+        + nombre               : VARCHAR(100)        {UQ, NN, IX}
+        + es_alergeno          : BOOLEAN             {NN, DEFAULT false}
+        + es_elaborado         : BOOLEAN             {NN, DEFAULT false}
+        + stock_minimo         : INTEGER             {NN, DEFAULT 0, CHECK >= 0}
+        + stock_real           : DECIMAL(12,3)       {derived}
+        + stock_disponible     : DECIMAL(12,3)       {derived}
+        .. Audit ..
+        + deleted_at           : TIMESTAMPTZ         {IX}
+    }
+    note right of Ingrediente
+      es_elaborado=false: materia prima comprada
+      (ENTRADA manual o por compra).
+      es_elaborado=true: sub-ensamble producido
+      internamente (salsa base, masa madre) con
+      receta propia (RecetaIngrediente) y
+      OrdenProduccion previa. Resuelve el caso
+      de producciones intermedias (BOM multiescala).
+    end note
+
+    class ProductoIngrediente <<Link>> {
+        .. PK compuesta ..
+        + producto_id          : BIGINT              {PK, FK -> Producto.id}
+        + ingrediente_id       : BIGINT              {PK, FK -> Ingrediente.id}
+        .. Receta (BOM nivel venta) ..
+        + cantidad_requerida   : DECIMAL(10,3)       {NN, DEFAULT 1, CHECK > 0}
+        + unidad_medida        : VARCHAR(10)         {NN, DEFAULT 'UN'}
+        .. Personalizacion ..
+        + es_removible         : BOOLEAN             {NN, DEFAULT true}
+    }
+
+    class RecetaIngrediente <<Link>> {
+        .. PK compuesta ..
+        + ingrediente_padre_id : BIGINT              {PK, FK -> Ingrediente.id}
+        + componente_id        : BIGINT              {PK, FK -> Ingrediente.id}
+        .. Receta (BOM nivel insumo) ..
+        + cantidad_requerida   : DECIMAL(10,3)       {NN, CHECK > 0}
+        + unidad_medida        : VARCHAR(10)         {NN, DEFAULT 'UN'}
+    }
+    note bottom of RecetaIngrediente
+      BOM recursiva entre insumos.
+      Solo valida si el padre tiene es_elaborado=true.
+      CHECK ingrediente_padre_id <> componente_id;
+      la ausencia de ciclos profundos se valida en
+      el Service (DFS / CTE recursiva) antes del alta.
+    end note
+
+    enum TipoMovimientoEnum <<Enum>> {
+        ENTRADA
+        SALIDA
+        RESERVA
+        LIBERACION_RESERVA
+        MERMA
+        AJUSTE_POSITIVO
+        AJUSTE_NEGATIVO
+    }
+    note bottom of TipoMovimientoEnum
+      stock_real = +ENTRADA +AJUSTE_POSITIVO
+        -SALIDA -MERMA -AJUSTE_NEGATIVO
+      stock_disponible = stock_real
+        +LIBERACION_RESERVA -RESERVA
+      MERMA exige motivo. Tipo ENUM PG
+      compartido por ambos ledgers
+      (create_type=False en el segundo).
+    end note
+
+    class MovimientoStock <<Append>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + producto_id          : BIGINT              {FK -> Producto.id, NN, IX}
+        + lote_id              : BIGINT              {FK -> Lote.id, NULL}
+        .. Origen (exclusive arc) ..
+        + pedido_id            : BIGINT              {FK -> Pedido.id, NULL, xor}
+        + orden_produccion_id  : BIGINT              {FK -> OrdenProduccion.id, NULL, xor}
+        .. Atributos ..
+        + tipo_movimiento      : TipoMovimientoEnum  {NN}
+        + cantidad             : DECIMAL(12,3)       {NN, CHECK > 0}
+        + motivo               : VARCHAR(120)
+        .. Audit ..
+        + fecha_registro       : TIMESTAMPTZ         {NN, IX, append-only}
+    }
+    note right of MovimientoStock
+      Ledger append-only del PRODUCTO terminado.
+      Exclusive arc: CHECK
+      num_nonnulls(pedido_id, orden_produccion_id) <= 1.
+      Ambos NULL = movimiento manual
+      (compra, ajuste, merma). La integridad
+      referencial queda en la base de datos.
+      SQLModel: CheckConstraint en ~__table_args~__.
+    end note
+
+    class MovimientoIngrediente <<Append>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + ingrediente_id       : BIGINT              {FK -> Ingrediente.id, NN, IX}
+        .. Origen ..
+        + orden_produccion_id  : BIGINT              {FK -> OrdenProduccion.id, NULL}
+        .. Atributos ..
+        + tipo_movimiento      : TipoMovimientoEnum  {NN}
+        + cantidad             : DECIMAL(12,3)       {NN, CHECK > 0}
+        + motivo               : VARCHAR(120)
+        .. Audit ..
+        + fecha_registro       : TIMESTAMPTZ         {NN, IX, append-only}
+    }
+    note right of MovimientoIngrediente
+      Ledger append-only de INSUMOS.
+      orden_produccion_id NULL = movimiento
+      manual (compra, ajuste, merma).
+      Una orden de ingrediente elaborado
+      genera aqui su ENTRADA.
+    end note
+
+    class Lote <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + producto_id          : BIGINT              {FK -> Producto.id, NN, IX}
+        .. Trazabilidad FEFO ..
+        + codigo_lote          : VARCHAR(50)         {NN}
+        + fecha_vencimiento    : TIMESTAMPTZ         {NN}
+        + fecha_ingreso        : TIMESTAMPTZ         {NN}
+        + cantidad_inicial     : DECIMAL(12,3)       {NN}
+    }
+    note bottom of Lote
+      FEFO: SALIDA/RESERVA/MERMA consumen lotes
+      por fecha_vencimiento ASC. El stock por lote
+      se deriva filtrando el ledger por lote_id.
+      Habilita recall bromatologico.
+    end note
+
+    enum EstadoOrdenEnum <<Enum>> {
+        PLANIFICADA
+        EN_PROCESO
+        COMPLETADA
+        CANCELADA
+    }
+
+    class OrdenProduccion <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Salida (exclusive arc) ..
+        + producto_id          : BIGINT              {FK -> Producto.id, NULL, xor}
+        + ingrediente_id       : BIGINT              {FK -> Ingrediente.id, NULL, xor}
+        .. Atributos ..
+        + cantidad_a_producir  : DECIMAL(12,3)       {NN, CHECK > 0}
+        + estado               : EstadoOrdenEnum     {NN, DEFAULT PLANIFICADA, IX}
+        + motivo_cancelacion   : VARCHAR(200)
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + updated_at           : TIMESTAMPTZ         {NN}
+    }
+    note right of OrdenProduccion
+      Aggregate Root del flujo productivo.
+      Exclusive arc: CHECK
+      num_nonnulls(producto_id, ingrediente_id) = 1.
+      Produce un Producto final (BOM =
+      ProductoIngrediente) O un Ingrediente
+      elaborado (BOM = RecetaIngrediente).
+      Planificar: RESERVA de componentes.
+      Completar: LIBERACION + SALIDA por
+      componente + ENTRADA del resultado.
+      Cancelar: solo LIBERACION_RESERVA.
+    end note
+}
+
+' ============================================================================
+'  DOMINIO 3 - VENTAS, PAGOS & TRAZABILIDAD
+' ============================================================================
+package "Dominio 3 - Ventas, Pagos & Trazabilidad" #FFF3E0 {
+
+    class FormaPago <<Catalog>> {
+        .. PK semantica ..
+        + codigo               : VARCHAR(20)         {PK, seed}
+        .. Atributos ..
+        + nombre               : VARCHAR(80)         {NN}
+        + habilitado           : BOOLEAN             {NN, DEFAULT true}
+    }
+
+    class EstadoPedido <<Catalog>> {
+        .. PK semantica ..
+        + codigo               : VARCHAR(20)         {PK, seed}
+        .. Atributos ..
+        + descripcion          : VARCHAR(120)        {NN}
+        + orden                : INT                 {NN}
+        + es_terminal          : BOOLEAN             {NN, DEFAULT false}
+    }
+    note right of EstadoPedido
+      FSM: PENDIENTE -> CONFIRMADO ->
+      EN_PREPARACION -> EN_CAMINO -> ENTREGADO.
+      CANCELADO desde estados no terminales.
+      es_terminal=true sin salidas (409).
+      Validacion SIEMPRE en Service.
+    end note
+
+    class Pedido <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + usuario_id           : BIGINT              {FK -> Usuario.id, NN, IX}
+        + estado_codigo        : VARCHAR(20)         {FK -> EstadoPedido.codigo, NN, IX}
+        + forma_pago_codigo    : VARCHAR(20)         {FK -> FormaPago.codigo, NN}
+        + direccion_id         : BIGINT              {FK -> DireccionEntrega.id, SET NULL}
+        .. Snapshot monetario (inmutable) ..
+        + subtotal             : DECIMAL(10,2)       {NN, CHECK >= 0, snap}
+        + descuento            : DECIMAL(10,2)       {NN, DEFAULT 0.00, snap}
+        + costo_envio          : DECIMAL(10,2)       {NN, snap}
+        + total                : DECIMAL(10,2)       {NN, CHECK >= 0, snap}
+        .. Integracion MP ..
+        + external_reference   : VARCHAR(100)        {UQ, NN, IX}
+        .. Atributos ..
+        + notas                : TEXT
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN, IX}
+        + updated_at           : TIMESTAMPTZ         {NN}
+    }
+    note right of Pedido
+      direccion_id NULL = retiro en local.
+      costo_envio se congela tras cotizar
+      contra ZonaCobertura. Sin soft delete:
+      el ciclo de vida lo cierra la FSM
+      con historial append-only completo.
+    end note
+
+    class DetallePedido <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + pedido_id            : BIGINT              {FK -> Pedido.id, NN, IX, CASCADE}
+        + producto_id          : BIGINT              {FK -> Producto.id, NN, RESTRICT}
+        .. Snapshot (inmutable, RN-04) ..
+        + nombre_snapshot      : VARCHAR(200)        {NN, snap}
+        + precio_snapshot      : DECIMAL(10,2)       {NN, snap}
+        .. Atributos ..
+        + cantidad             : INTEGER             {NN, CHECK >= 1}
+    }
+    note bottom of DetallePedido
+      PK surrogate: permite repetir el mismo
+      producto con personalizaciones distintas.
+      Las exclusiones van en DetallePedidoExclusion
+      (1FN, FKs reales, analitica sin unnest()).
+    end note
+
+    class DetallePedidoExclusion <<Link>> {
+        .. PK compuesta ..
+        + detalle_pedido_id    : BIGINT              {PK, FK -> DetallePedido.id, CASCADE}
+        + ingrediente_id       : BIGINT              {PK, FK -> Ingrediente.id, RESTRICT}
+    }
+    note bottom of DetallePedidoExclusion
+      Ingredientes removidos de la linea
+      ("sin cebolla"). El Service valida que el
+      ingrediente pertenezca a la receta del
+      producto con es_removible=true.
+      Consulta analitica directa:
+      COUNT GROUP BY ingrediente_id.
+    end note
+
+    class HistorialEstadoPedido <<Append>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + pedido_id            : BIGINT              {FK -> Pedido.id, NN, IX, CASCADE}
+        + estado_desde         : VARCHAR(20)         {FK -> EstadoPedido.codigo, NULL}
+        + estado_hasta         : VARCHAR(20)         {FK -> EstadoPedido.codigo, NN}
+        + usuario_id           : BIGINT              {FK -> Usuario.id, NULL}
+        .. Atributos ..
+        + motivo               : TEXT
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN, IX, append-only}
+    }
+    note right of HistorialEstadoPedido
+      RN-02: primer registro estado_desde = NULL.
+      RN-03: append-only, jamas UPDATE/DELETE.
+      RN-05: motivo obligatorio si
+      estado_hasta = CANCELADO.
+    end note
+
+    class Pago <<Table>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. FK ..
+        + pedido_id            : BIGINT              {FK -> Pedido.id, NN, IX}
+        + forma_pago_codigo    : VARCHAR(20)         {FK -> FormaPago.codigo, NN}
+        .. Monto ..
+        + monto                : DECIMAL(10,2)       {NN}
+        .. MercadoPago ..
+        + mp_payment_id        : BIGINT              {UQ, NULL}
+        + mp_status            : VARCHAR(30)         {NN, DEFAULT 'pending'}
+        + mp_status_detail     : VARCHAR(120)
+        + external_reference   : VARCHAR(100)        {UQ, NN, IX}
+        + idempotency_key      : VARCHAR(100)        {UQ, NN}
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+        + updated_at           : TIMESTAMPTZ         {NN}
+    }
+}
+
+' ============================================================================
+'  DOMINIO 4 - CONFIGURACION & REGLAS DE DOMINIO GASTRONOMICO
+' ============================================================================
+package "Dominio 4 - Configuracion & Dominio Gastronomico" #E8F5E9 {
+
+    class ConfiguracionLocal <<Config>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Atributos ..
+        + nombre               : VARCHAR(120)        {NN}
+        + zona_horaria         : VARCHAR(60)         {NN}
+        + direccion_origen     : TEXT
+        + lat_origen           : DOUBLE PRECISION
+        + lng_origen           : DOUBLE PRECISION
+    }
+
+    class HorarioOperativo <<Config>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Atributos ..
+        + dia_semana           : SMALLINT            {NN, CHECK 0..6}
+        + hora_apertura        : TIME                {NN}
+        + hora_cierre          : TIME                {NN}
+        + activo               : BOOLEAN             {NN, DEFAULT true}
+    }
+
+    class DiaBloqueado <<Config>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Atributos ..
+        + fecha                : TIMESTAMPTZ         {NN}
+        + motivo               : VARCHAR(120)
+        + todo_el_dia          : BOOLEAN             {NN, DEFAULT true}
+        + hora_desde           : TIME
+        + hora_hasta           : TIME
+    }
+
+    class ZonaCobertura <<Config>> {
+        .. PK ..
+        + id                   : BIGSERIAL           {PK}
+        .. Geocerca ..
+        + nombre               : VARCHAR(120)        {NN}
+        + poligono             : JSONB               {NN}
+        .. Tarifa dinamica ..
+        + tarifa_base          : DECIMAL(10,2)       {NN, DEFAULT 0}
+        + tarifa_por_km        : DECIMAL(10,2)       {NN, DEFAULT 0}
+        + pedido_minimo        : DECIMAL(10,2)       {NN, DEFAULT 0}
+        + activo               : BOOLEAN             {NN, DEFAULT true}
+        .. Audit ..
+        + created_at           : TIMESTAMPTZ         {NN}
+    }
+    note bottom of ZonaCobertura
+      MVP: poligono JSONB + ray-casting +
+      Haversine en Python. La logica geoespacial
+      vive aislada en CoberturaRepository (puerto):
+      el dominio consume contiene(punto) y
+      distancia_km(a, b). Migracion futura a
+      PostGIS (GEOGRAPHY + indice GiST,
+      ST_Contains / ST_Distance) sin tocar
+      Service ni Router. Tarifas en DECIMAL.
+    end note
+}
+
+' ============================================================================
+'  RELACIONES - Dominio 1
+' ============================================================================
+Usuario "1" *-- "0..*" DireccionEntrega : tiene >
+Usuario "1" *-- "0..*" RefreshToken : sesiones >
+Usuario "1" *-- "1..*" UsuarioRol : posee >
+Rol "1" o-- "0..*" UsuarioRol : agrupa >
+Usuario "0..1" o-- "0..*" UsuarioRol : asignado_por >
+
+' ============================================================================
+'  RELACIONES - Dominio 2
+' ============================================================================
+Categoria "0..1" o-- "0..*" Categoria : parent >
+Producto "1" *-- "0..*" ProductoCategoria : clasifica >
+Categoria "1" o-- "0..*" ProductoCategoria : agrupa >
+Producto "1" *-- "0..*" ProductoIngrediente : receta BOM >
+Ingrediente "1" o-- "0..*" ProductoIngrediente : compone >
+Ingrediente "1" *-- "0..*" RecetaIngrediente : padre elaborado >
+Ingrediente "1" o-- "0..*" RecetaIngrediente : componente >
+Producto "1" *-- "0..*" MovimientoStock : ledger >
+Ingrediente "1" *-- "0..*" MovimientoIngrediente : ledger >
+Producto "1" o-- "0..*" Lote : lotes >
+Lote "0..1" o-- "0..*" MovimientoStock : traza >
+Producto "0..1" o-- "0..*" OrdenProduccion : produce {xor} >
+Ingrediente "0..1" o-- "0..*" OrdenProduccion : produce {xor} >
+OrdenProduccion "0..1" o-- "0..*" MovimientoStock : origina {xor} >
+OrdenProduccion "0..1" o-- "0..*" MovimientoIngrediente : origina >
+MovimientoStock ..> TipoMovimientoEnum : usa
+MovimientoIngrediente ..> TipoMovimientoEnum : usa
+OrdenProduccion ..> EstadoOrdenEnum : usa
+
+' ============================================================================
+'  RELACIONES - Dominio 3
+' ============================================================================
+Usuario "1" o-- "0..*" Pedido : realiza >
+DireccionEntrega "0..1" o-- "0..*" Pedido : destino >
+EstadoPedido "1" o-- "0..*" Pedido : en estado >
+FormaPago "1" o-- "0..*" Pedido : pagado con >
+Pedido "1" *-- "1..*" DetallePedido : contiene >
+DetallePedido "1" *-- "0..*" DetallePedidoExclusion : excluye >
+Ingrediente "1" o-- "0..*" DetallePedidoExclusion : removido >
+Pedido "1" *-- "1..*" HistorialEstadoPedido : trazabilidad >
+Pedido "1" *-- "0..*" Pago : registra >
+Producto "1" o-- "0..*" DetallePedido : referenciado >
+FormaPago "1" o-- "0..*" Pago : medio >
+EstadoPedido "1" o-- "0..*" HistorialEstadoPedido : desde >
+EstadoPedido "1" o-- "0..*" HistorialEstadoPedido : hasta >
+Usuario "0..1" o-- "0..*" HistorialEstadoPedido : ejecuto >
+Pedido "0..1" o-- "0..*" MovimientoStock : RESERVA / LIBERACION {xor} >
+
+' ============================================================================
+'  RELACIONES - Dominio 4 (reglas de negocio, sin FK fisicas)
+' ============================================================================
+ZonaCobertura ..> Pedido : valida cobertura\ny cotiza envio (snap)
+HorarioOperativo ..> Pedido : valida apertura (409)
+DiaBloqueado ..> Pedido : bloquea fechas
+ConfiguracionLocal ..> ZonaCobertura : origen Haversine
+
+@enduml
