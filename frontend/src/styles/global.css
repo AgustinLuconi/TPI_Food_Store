@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+/* Sistema de diseño (sección 11.4): azul marino para estructura y texto, naranja para acciones
+   y estados activos (10 a 15 % de la interfaz). */
+@theme {
+  --color-navy-900: #0f172a;
+  --color-navy-800: #1e293b;
+  --color-navy-700: #334155;
+  --color-navy-500: #64748b;
+  --color-accent-600: #ea580c;
+  --color-accent-700: #c2410c;
+  --color-accent-100: #ffedd5;
+  --color-surface-muted: #f8fafc;
+  --color-surface-border: #e2e8f0;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+  --color-success-600: #15803d;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-navy-900);
+  }
+  body {
+    margin: 0;
+    background: var(--color-surface-muted);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Todo elemento interactivo tiene foco visible (WCAG). */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-600);
+    outline-offset: 2px;
+  }
+}
