@@ -13,6 +13,8 @@ from app.modules.categorias.router import router as categorias_router
 from app.modules.config.router import config_router, envio_router
 from app.modules.direcciones.router import router as direcciones_router
 from app.modules.inventario.router import router as inventario_router
+from app.modules.pagos.router import router as pagos_router
+from app.modules.pedidos.router import router as pedidos_router
 from app.modules.produccion.router import router as produccion_router
 from app.modules.productos.router import ingredientes_router, productos_router
 from app.modules.usuarios.router import router as usuarios_router
@@ -53,6 +55,8 @@ def create_app() -> FastAPI:
     app.include_router(produccion_router, prefix=API_PREFIX)
     app.include_router(config_router, prefix=API_PREFIX)
     app.include_router(envio_router, prefix=API_PREFIX)
+    app.include_router(pedidos_router, prefix=API_PREFIX)
+    app.include_router(pagos_router, prefix=API_PREFIX)
 
     # Imágenes de productos. Con Docker las sirve Nginx directamente desde el volumen; en desarrollo, la app.
     media_dir().mkdir(parents=True, exist_ok=True)

@@ -18,6 +18,7 @@ class ConfigUnitOfWork(UnitOfWork):
     cobertura: CoberturaRepository
 
     def _init_repositories(self, session: Session) -> None:
+        super()._init_repositories(session)
         self.local = LocalRepository(session)
         self.horarios = HorarioRepository(session)
         self.bloqueos = DiaBloqueadoRepository(session)

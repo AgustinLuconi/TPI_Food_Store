@@ -17,6 +17,7 @@ class InventarioUnitOfWork(UnitOfWork):
     mov_ingredientes: MovimientoIngredienteRepository
 
     def _init_repositories(self, session: Session) -> None:
+        super()._init_repositories(session)
         self.productos = ProductoRepository(session)
         self.ingredientes = IngredienteRepository(session)
         self.lotes = LoteRepository(session)

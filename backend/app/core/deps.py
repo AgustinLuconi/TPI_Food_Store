@@ -4,12 +4,14 @@ Invariante de seguridad (sección 5.3): el rol se verifica en CADA request contr
 no contra el token. Si un usuario pierde un rol, el cambio rige en su siguiente request.
 """
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, Request
 
-from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.errors import ForbiddenError, UnauthorizedError, ValidationError
 from app.core.security import ACCESS_COOKIE, decode_access_token
 from app.modules.usuarios.deps import get_usuarios_uow
 from app.modules.usuarios.uow import UsuariosUnitOfWork
@@ -67,3 +69,26 @@ def require_roles(*allowed: str) -> Callable[[CurrentUser], CurrentUser]:
         return user
 
     return dependency
+
+
+def get_idempotency_key(
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", description="UUID por intento")] = None,
+) -> str:
+    """Cabecera obligatoria de las operaciones que no deben duplicarse (crear pedido, registrar pago).
+
+    Debe ser un UUID; se normaliza a minúsculas para que dos escrituras del mismo UUID coincidan."""
+    if not idempotency_key:
+        raise ValidationError(
+            "Falta la cabecera Idempotency-Key (un UUID por intento)",
+            code="IDEMPOTENCY_KEY_REQUIRED",
+            field="Idempotency-Key",
+        )
+    try:
+        return str(uuid.UUID(idempotency_key.strip()))
+    except ValueError as e:
+        raise ValidationError(
+            "Idempotency-Key debe ser un UUID", code="INVALID_IDEMPOTENCY_KEY", field="Idempotency-Key"
+        ) from e
+
+
+IdempotencyKey = Annotated[str, Depends(get_idempotency_key)]

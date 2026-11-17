@@ -125,21 +125,27 @@ def _reglas_de_apertura(uow: ConfigUnitOfWork) -> tuple[list[reglas.Franja], lis
     return franjas, bloqueos
 
 
+def calcular_estado_local(uow: ConfigUnitOfWork, ahora: datetime | None = None) -> EstadoLocal:
+    """¿Está abierto ahora y cuándo abre? Se usa DENTRO de una transacción abierta (por ejemplo, al crear un
+    pedido). `ahora` solo se inyecta en las pruebas."""
+    local = _local(uow)
+    zona = ZoneInfo(local.zona_horaria)
+    momento = (ahora or utcnow()).astimezone(zona)
+    franjas, bloqueos = _reglas_de_apertura(uow)
+    abierto = reglas.esta_abierto(momento, franjas, bloqueos)
+    proxima = None if abierto else reglas.proxima_apertura(momento, franjas, bloqueos)
+    return EstadoLocal(abierto=abierto, proxima_apertura=proxima, zona_horaria=local.zona_horaria)
+
+
 def estado_local(uow: ConfigUnitOfWork, ahora: datetime | None = None) -> EstadoLocal:
-    """¿Está abierto ahora y cuándo abre? `ahora` solo se inyecta en las pruebas."""
     with uow:
-        local = _local(uow)
-        zona = ZoneInfo(local.zona_horaria)
-        momento = (ahora or utcnow()).astimezone(zona)
-        franjas, bloqueos = _reglas_de_apertura(uow)
-        abierto = reglas.esta_abierto(momento, franjas, bloqueos)
-        proxima = None if abierto else reglas.proxima_apertura(momento, franjas, bloqueos)
-        return EstadoLocal(abierto=abierto, proxima_apertura=proxima, zona_horaria=local.zona_horaria)
+        return calcular_estado_local(uow, ahora)
 
 
 def exigir_local_abierto(uow: ConfigUnitOfWork, ahora: datetime | None = None) -> None:
-    """RN-13: solo se crean pedidos con el local abierto. 409 con la próxima apertura."""
-    estado = estado_local(uow, ahora)
+    """RN-13: solo se crean pedidos con el local abierto. 409 con la próxima apertura.
+    Se usa DENTRO de una transacción abierta."""
+    estado = calcular_estado_local(uow, ahora)
     if not estado.abierto:
         cuando = estado.proxima_apertura.strftime("%d/%m/%Y %H:%M") if estado.proxima_apertura else "sin fecha definida"
         raise ConflictError(f"El local está cerrado. Próxima apertura: {cuando}", code="LOCAL_CLOSED")
@@ -208,22 +214,32 @@ def desactivar_zona(uow: ConfigUnitOfWork, zona_id: int) -> None:
 # ==============================================================================================
 
 
+def calcular_cotizacion(uow: ConfigUnitOfWork, datos: CotizacionRequest) -> CotizacionRead:
+    """Zona que contiene el punto, distancia desde el local y costo = tarifa_base + km × tarifa_por_km.
+    Se usa DENTRO de una transacción abierta (el pedido la reutiliza para congelar el costo de envío)."""
+    local = _local(uow)
+    if local.lat_origen is None or local.lng_origen is None:
+        raise ConflictError("El local no tiene punto de origen configurado", code="ORIGIN_NOT_SET")
+    punto = (datos.lat, datos.lng)
+    zona = uow.cobertura.zona_que_contiene(punto)
+    if zona is None:
+        return CotizacionRead(dentro_de_cobertura=False)
+    distancia = round(uow.cobertura.distancia_km((local.lat_origen, local.lng_origen), punto), 2)
+    costo = (zona.tarifa_base + Decimal(str(distancia)) * zona.tarifa_por_km).quantize(CENTAVO, ROUND_HALF_UP)
+    return CotizacionRead(
+        dentro_de_cobertura=True,
+        zona=ZonaCotizada(id=zona.id, nombre=zona.nombre, pedido_minimo=zona.pedido_minimo),  # type: ignore[arg-type]
+        distancia_km=distancia,
+        costo_envio=costo,
+        cumple_minimo=datos.subtotal >= zona.pedido_minimo,
+    )
+
+
 def cotizar(uow: ConfigUnitOfWork, datos: CotizacionRequest) -> CotizacionRead:
-    """Zona que contiene el punto, distancia desde el local y costo = tarifa_base + km × tarifa_por_km."""
     with uow:
-        local = _local(uow)
-        if local.lat_origen is None or local.lng_origen is None:
-            raise ConflictError("El local no tiene punto de origen configurado", code="ORIGIN_NOT_SET")
-        punto = (datos.lat, datos.lng)
-        zona = uow.cobertura.zona_que_contiene(punto)
-        if zona is None:
-            return CotizacionRead(dentro_de_cobertura=False)
-        distancia = round(uow.cobertura.distancia_km((local.lat_origen, local.lng_origen), punto), 2)
-        costo = (zona.tarifa_base + Decimal(str(distancia)) * zona.tarifa_por_km).quantize(CENTAVO, ROUND_HALF_UP)
-        return CotizacionRead(
-            dentro_de_cobertura=True,
-            zona=ZonaCotizada(id=zona.id, nombre=zona.nombre, pedido_minimo=zona.pedido_minimo),  # type: ignore[arg-type]
-            distancia_km=distancia,
-            costo_envio=costo,
-            cumple_minimo=datos.subtotal >= zona.pedido_minimo,
-        )
+        return calcular_cotizacion(uow, datos)
+
+
+def obtener_local_en_transaccion(uow: ConfigUnitOfWork) -> LocalRead:
+    """El local, DENTRO de una transacción abierta (otros módulos lo usan para conocer la zona horaria)."""
+    return LocalRead.model_validate(_local(uow))

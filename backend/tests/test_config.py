@@ -238,13 +238,15 @@ def test_el_endpoint_publico_informa_el_estado(client):
 
 
 def test_exigir_local_abierto(client, uow_factory):
-    service.exigir_local_abierto(uow_factory(ConfigUnitOfWork), local_a(LUNES, 12))  # abierto: no pasa nada
-    try:
-        service.exigir_local_abierto(uow_factory(ConfigUnitOfWork), local_a(LUNES, 8))
-    except ConflictError as e:
-        assert e.code == "LOCAL_CLOSED" and "16/11/2026 11:00" in e.detail
-    else:
-        raise AssertionError("dejó pedir con el local cerrado")
+    uow = uow_factory(ConfigUnitOfWork)
+    with uow:
+        service.exigir_local_abierto(uow, local_a(LUNES, 12))  # abierto: no pasa nada
+        try:
+            service.exigir_local_abierto(uow, local_a(LUNES, 8))
+        except ConflictError as e:
+            assert e.code == "LOCAL_CLOSED" and "16/11/2026 11:00" in e.detail
+        else:
+            raise AssertionError("dejó pedir con el local cerrado")
 
 
 # ----------------------------------------------------------------------------------------------

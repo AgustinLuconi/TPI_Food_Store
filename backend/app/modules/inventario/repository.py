@@ -12,7 +12,7 @@ from sqlalchemy import case, func
 from sqlmodel import select
 
 from app.core.repository import AppendOnlyRepository, BaseRepository
-from app.modules.inventario.stock import SIGNO_DISPONIBLE, SIGNO_REAL
+from app.modules.inventario.stock import SIGNO_DISPONIBLE, SIGNO_REAL, SIGNO_RESERVADO
 from app.modules.productos.models import (
     Ingrediente,
     Lote,
@@ -105,6 +105,22 @@ class MovimientoStockRepository(_Ledger[MovimientoStock]):
         if not lote_ids:
             return {}
         return self._por_lote(MovimientoStock.lote_id.in_(lote_ids))  # type: ignore[union-attr]
+
+    def reservado_por_pedido(self, pedido_id: int) -> list[tuple[int, int | None, Decimal]]:
+        """(producto_id, lote_id, cantidad) que el pedido todavía tiene reservada, agrupado por lote.
+
+        Sirve para liberar o consumir exactamente los mismos lotes que se reservaron (FEFO al crear)."""
+        stmt = (
+            select(
+                MovimientoStock.producto_id,
+                MovimientoStock.lote_id,
+                func.coalesce(func.sum(_aporte(MovimientoStock, SIGNO_RESERVADO)), 0),
+            )
+            .where(MovimientoStock.pedido_id == pedido_id)
+            .group_by(MovimientoStock.producto_id, MovimientoStock.lote_id)
+            .order_by(MovimientoStock.producto_id, MovimientoStock.lote_id.asc().nulls_last())  # type: ignore[union-attr]
+        )
+        return [(p, lote, total) for p, lote, total in self.session.exec(stmt).all() if total != 0]
 
     def _por_lote(self, filtro: Any) -> dict[int, tuple[Decimal, Decimal]]:
         stmt = (

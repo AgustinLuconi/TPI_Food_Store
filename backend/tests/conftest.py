@@ -47,6 +47,9 @@ from app.modules.direcciones.deps import get_direcciones_uow  # noqa: E402
 from app.modules.direcciones.uow import DireccionesUnitOfWork  # noqa: E402
 from app.modules.inventario.deps import get_inventario_uow  # noqa: E402
 from app.modules.inventario.uow import InventarioUnitOfWork  # noqa: E402
+from app.modules.pagos.deps import get_pagos_uow  # noqa: E402
+from app.modules.pedidos.deps import get_pedidos_uow  # noqa: E402
+from app.modules.pedidos.uow import PedidosUnitOfWork  # noqa: E402
 from app.modules.produccion.deps import get_produccion_uow  # noqa: E402
 from app.modules.produccion.uow import ProduccionUnitOfWork  # noqa: E402
 from app.modules.productos.deps import get_productos_uow  # noqa: E402
@@ -66,6 +69,8 @@ UOW_DEPENDENCIES: dict[Callable, type[UnitOfWork]] = {
     get_inventario_uow: InventarioUnitOfWork,
     get_produccion_uow: ProduccionUnitOfWork,
     get_config_uow: ConfigUnitOfWork,
+    get_pedidos_uow: PedidosUnitOfWork,
+    get_pagos_uow: PedidosUnitOfWork,
 }
 
 
@@ -121,3 +126,7 @@ def client(session_factory) -> Iterator[TestClient]:
 def uow_factory(session_factory) -> Callable[[type[UnitOfWork]], UnitOfWork]:
     """Crea un UoW de cualquier módulo conectado a la base de prueba (para preparar datos)."""
     return lambda uow_class: uow_class(session_factory)
+
+
+# Escenario de pedidos y pagos (fixtures `tienda` y `reloj`): vive en un módulo aparte para no inflar este archivo.
+from tests.pedidos_helpers import reloj, tienda  # noqa: E402, F401

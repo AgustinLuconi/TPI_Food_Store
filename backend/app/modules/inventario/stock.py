@@ -19,6 +19,9 @@ SIGNO_REAL: dict[str, int] = {
 }
 SIGNO_DISPONIBLE: dict[str, int] = {**SIGNO_REAL, T.RESERVA: -1, T.LIBERACION_RESERVA: 1}
 
+# Lo que sigue reservado: cada RESERVA suma y cada LIBERACION_RESERVA la anula.
+SIGNO_RESERVADO: dict[str, int] = {T.RESERVA: 1, T.LIBERACION_RESERVA: -1}
+
 # RN-07: solo estos cuatro se cargan a mano; SALIDA, RESERVA y LIBERACION_RESERVA las genera el sistema.
 TIPOS_MANUALES = frozenset({T.ENTRADA, T.MERMA, T.AJUSTE_POSITIVO, T.AJUSTE_NEGATIVO})
 # Los manuales que restan stock: no pueden tocar lo que ya está reservado.

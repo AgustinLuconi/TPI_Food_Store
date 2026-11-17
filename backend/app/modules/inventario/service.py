@@ -239,6 +239,38 @@ def ingresar_producto(
     )
 
 
+def _movimientos_de_reserva(
+    uow: InventarioUnitOfWork, pedido_id: int, tipos: tuple[TipoMovimiento, ...]
+) -> list[MovimientoStock]:
+    """Para cada lote que el pedido tiene reservado, un movimiento de cada tipo indicado (en ese orden)."""
+    creados = []
+    for producto_id, lote_id, cantidad in uow.mov_productos.reservado_por_pedido(pedido_id):
+        for tipo in tipos:
+            creados.append(
+                uow.mov_productos.create(
+                    MovimientoStock(
+                        producto_id=producto_id,
+                        lote_id=lote_id,
+                        pedido_id=pedido_id,
+                        tipo_movimiento=tipo,
+                        cantidad=cantidad,
+                    )
+                )
+            )
+    return creados
+
+
+def liberar_reservas_de_pedido(uow: InventarioUnitOfWork, pedido_id: int) -> list[MovimientoStock]:
+    """Cancelación desde PENDIENTE o CONFIRMADO: LIBERACION_RESERVA por lote; el stock real nunca cambió."""
+    return _movimientos_de_reserva(uow, pedido_id, (T.LIBERACION_RESERVA,))
+
+
+def consumir_reservas_de_pedido(uow: InventarioUnitOfWork, pedido_id: int) -> list[MovimientoStock]:
+    """EN_PREPARACION: LIBERACION_RESERVA y SALIDA por lote (consumo físico). La liberación va primero para
+    no descontar dos veces el disponible: anula la reserva y la salida registra el consumo."""
+    return _movimientos_de_reserva(uow, pedido_id, (T.LIBERACION_RESERVA, T.SALIDA))
+
+
 def registrar_movimiento_producto(
     uow: InventarioUnitOfWork, producto_id: int, datos: MovimientoProductoCreate
 ) -> list[MovimientoRead]:
