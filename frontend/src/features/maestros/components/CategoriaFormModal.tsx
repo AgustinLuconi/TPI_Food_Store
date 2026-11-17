@@ -3,7 +3,8 @@ import { toApiError } from '@/shared/api/errors'
 import { EntityFormModal } from '@/shared/components/EntityFormModal'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
-import { useCategorias, useGuardarCategoria } from '../hooks/useCategorias'
+import { useGuardarCategoria, useOpcionesDeCategoria } from '../hooks/useCategorias'
+import { idsDelSubarbol } from '../lib/arbolCategorias'
 import type { Categoria } from '../types'
 
 interface Props {
@@ -13,8 +14,6 @@ interface Props {
   onSaved: (guardada: Categoria, modo: 'create' | 'edit') => void
 }
 
-const TODAS_ACTIVAS = { search: '', estado: 'activos', page: 1, size: 100 } as const
-
 export function CategoriaFormModal({ categoria, onClose, onSaved }: Props) {
   const mode = categoria ? 'edit' : 'create'
   const [nombre, setNombre] = useState(categoria?.nombre ?? '')
@@ -23,14 +22,15 @@ export function CategoriaFormModal({ categoria, onClose, onSaved }: Props) {
   const [errorNombre, setErrorNombre] = useState<string | null>(null)
 
   const guardar = useGuardarCategoria()
-  const { data: candidatas } = useCategorias(TODAS_ACTIVAS)
+  const { data } = useOpcionesDeCategoria()
 
-  // Una categoría no puede ser su propio padre; los ciclos más profundos los rechaza el servidor.
+  // Ni la categoría ni sus descendientes pueden ser su padre (el servidor también lo rechaza).
+  const excluidas = categoria && data ? idsDelSubarbol(data.arbol, categoria.id) : new Set<number>()
   const opcionesPadre = [
     { value: '', label: 'Ninguna (categoría raíz)' },
-    ...(candidatas?.items ?? [])
-      .filter((c) => c.id !== categoria?.id)
-      .map((c) => ({ value: String(c.id), label: c.nombre })),
+    ...(data?.opciones ?? [])
+      .filter((o) => !excluidas.has(o.id))
+      .map((o) => ({ value: String(o.id), label: o.ruta })),
   ]
 
   function enviar() {

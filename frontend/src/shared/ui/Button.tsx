@@ -41,7 +41,8 @@ export function Button({
       aria-busy={loading || undefined}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-lg transition-colors',
-        'focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2',
+        // El ring reemplaza al contorno global de :focus-visible (si no, se verían dos indicadores).
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-60',
         VARIANTES[variant],
         TAMANOS[size],

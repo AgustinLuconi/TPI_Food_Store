@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { Orden } from '@/shared/types/common'
 import { Badge } from '@/shared/ui/Badge'
 import { cn } from '@/shared/ui/cn'
 import { EstadoVacio } from './EstadoVacio'
@@ -9,6 +10,8 @@ export interface Column<T> {
   header: string
   render: (row: T) => ReactNode
   className?: string
+  /** Si se indica, el encabezado permite ordenar por este campo (el servidor aplica el orden). */
+  sortKey?: string
 }
 
 interface DataTableProps<T> {
@@ -23,6 +26,9 @@ interface DataTableProps<T> {
   emptyTitle?: string
   emptyDescription?: string
   skeletonRows?: number
+  /** Orden actual y cambio de orden: la grilla no ordena en el cliente, lo pide al servidor. */
+  orden?: Orden
+  onOrdenChange?: (campo: string) => void
 }
 
 export function DataTable<T>({
@@ -35,6 +41,8 @@ export function DataTable<T>({
   emptyTitle = 'No hay resultados',
   emptyDescription = 'Probá con otros filtros o agregá un registro nuevo.',
   skeletonRows = 5,
+  orden,
+  onOrdenChange,
 }: DataTableProps<T>) {
   const colSpan = columns.length + (actions ? 1 : 0)
 
@@ -44,9 +52,12 @@ export function DataTable<T>({
         <thead className="bg-surface-muted text-xs uppercase tracking-wide text-navy-500">
           <tr>
             {columns.map((c) => (
-              <th key={c.key} scope="col" className={cn('px-4 py-3 font-semibold', c.className)}>
-                {c.header}
-              </th>
+              <EncabezadoDeColumna
+                key={c.key}
+                columna={c}
+                orden={orden}
+                onOrdenChange={onOrdenChange}
+              />
             ))}
             {actions && (
               <th scope="col" className="px-4 py-3 text-right font-semibold">
@@ -97,5 +108,47 @@ export function DataTable<T>({
         </tbody>
       </table>
     </div>
+  )
+}
+
+interface EncabezadoProps<T> {
+  columna: Column<T>
+  orden?: Orden
+  onOrdenChange?: (campo: string) => void
+}
+
+/** Encabezado accesible: si la columna es ordenable es un botón, y el <th> informa aria-sort. */
+function EncabezadoDeColumna<T>({ columna, orden, onOrdenChange }: EncabezadoProps<T>) {
+  const { sortKey } = columna
+  if (sortKey === undefined || onOrdenChange === undefined) {
+    return (
+      <th scope="col" className={cn('px-4 py-3 font-semibold', columna.className)}>
+        {columna.header}
+      </th>
+    )
+  }
+
+  const activo = orden?.campo === sortKey
+  const descendente = activo && orden.sentido === 'desc'
+  return (
+    <th
+      scope="col"
+      aria-sort={activo ? (descendente ? 'descending' : 'ascending') : 'none'}
+      className={cn('px-4 py-3 font-semibold', columna.className)}
+    >
+      <button
+        type="button"
+        onClick={() => onOrdenChange(sortKey)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase tracking-wide hover:text-navy-900',
+          activo && 'text-navy-900',
+        )}
+      >
+        {columna.header}
+        <span aria-hidden="true" className={cn(!activo && 'opacity-40')}>
+          {descendente ? '▼' : '▲'}
+        </span>
+      </button>
+    </th>
   )
 }

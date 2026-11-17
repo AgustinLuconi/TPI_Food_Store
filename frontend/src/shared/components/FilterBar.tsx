@@ -51,7 +51,7 @@ export function FilterBar({
         />
       </div>
       {group && (
-        <div className="lg:w-56">
+        <div className="lg:w-64">
           <Select
             label={group.label}
             value={group.value}
@@ -62,7 +62,8 @@ export function FilterBar({
       )}
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-sm font-semibold text-navy-900">Estado</legend>
-        <div className="inline-flex overflow-hidden rounded-lg border border-surface-border">
+        {/* Sin overflow-hidden: recortaría el contorno de foco de los botones (sección 11.4). */}
+        <div className="inline-flex rounded-lg border border-surface-border">
           {ESTADOS.map((e) => (
             <button
               key={e.value}
@@ -70,7 +71,7 @@ export function FilterBar({
               aria-pressed={estado === e.value}
               onClick={() => onEstadoChange(e.value)}
               className={cn(
-                'px-3 py-2 text-sm font-semibold transition-colors',
+                'px-3 py-2 text-sm font-semibold transition-colors first:rounded-l-lg last:rounded-r-lg',
                 estado === e.value
                   ? 'bg-navy-900 text-white'
                   : 'bg-white text-navy-700 hover:bg-surface-muted',
@@ -81,7 +82,8 @@ export function FilterBar({
           ))}
         </div>
       </fieldset>
-      {action && <div className="lg:ml-auto">{action}</div>}
+      {/* "Agregar" arriba a la derecha (sección 11.5), también en pantallas chicas. */}
+      {action && <div className="order-first self-end lg:order-none lg:ml-auto">{action}</div>}
     </div>
   )
 }

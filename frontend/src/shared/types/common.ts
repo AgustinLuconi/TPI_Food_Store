@@ -16,3 +16,9 @@ export interface ApiErrorBody {
 
 /** Filtro de estado de las pantallas de maestros: Activos (por defecto), Inactivos o Todos. */
 export type EstadoFiltro = 'activos' | 'inactivos' | 'todos'
+
+/** Orden de una grilla, aplicado en el servidor (sección 11.5). */
+export interface Orden {
+  campo: string
+  sentido: 'asc' | 'desc'
+}

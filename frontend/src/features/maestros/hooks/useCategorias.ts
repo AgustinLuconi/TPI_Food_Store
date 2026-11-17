@@ -1,18 +1,28 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoriasApi } from '../api/categoriasApi'
+import { aplanarArbol } from '../lib/arbolCategorias'
 import type { CategoriaInput, ListParams } from '../types'
 
 export const categoriasKeys = {
   all: ['categorias'] as const,
   list: (params: ListParams) => ['categorias', 'lista', params] as const,
+  arbol: ['categorias', 'arbol'] as const,
 }
 
-export function useCategorias(params: ListParams, options: { enabled?: boolean } = {}) {
+export function useCategorias(params: ListParams) {
   return useQuery({
     queryKey: categoriasKeys.list(params),
     queryFn: () => categoriasApi.list(params),
     placeholderData: keepPreviousData, // evita parpadeos al paginar o filtrar
-    enabled: options.enabled ?? true,
+  })
+}
+
+/** Árbol de categorías activas, aplanado con la ruta completa: alimenta los combos de categoría. */
+export function useOpcionesDeCategoria() {
+  return useQuery({
+    queryKey: categoriasKeys.arbol,
+    queryFn: categoriasApi.arbol,
+    select: (arbol) => ({ arbol, opciones: aplanarArbol(arbol) }),
   })
 }
 

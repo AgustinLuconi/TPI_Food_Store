@@ -10,16 +10,29 @@ import { Card } from '@/shared/ui/Card'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { CategoriaFormModal } from '../components/CategoriaFormModal'
-import { useAnularCategoria, useCategorias, useReactivarCategoria } from '../hooks/useCategorias'
+import {
+  useAnularCategoria,
+  useCategorias,
+  useOpcionesDeCategoria,
+  useReactivarCategoria,
+} from '../hooks/useCategorias'
 import { useMaestroFilters } from '../hooks/useMaestroFilters'
-import type { Categoria } from '../types'
+import { GRUPO_RAIZ, type Categoria } from '../types'
 
 const VOLVER = { volverA: RUTAS.adminCategorias, volverLabel: 'Volver a categorías' }
 
 export default function CategoriasPage() {
   const filtros = useMaestroFilters()
   const { data, isLoading, isError, error } = useCategorias(filtros.params)
+  const { data: arbol } = useOpcionesDeCategoria()
   const [modal, setModal] = useState<{ categoria: Categoria | null; clave: number } | null>(null)
+
+  // Combo de agrupación (sección 11.5): las subcategorías de una categoría, o solo las raíces.
+  const opcionesGrupo = [
+    { value: '', label: 'Todas' },
+    { value: GRUPO_RAIZ, label: 'Solo categorías raíz' },
+    ...(arbol?.opciones ?? []).map((o) => ({ value: String(o.id), label: `Dentro de ${o.ruta}` })),
+  ]
 
   const anular = useAnularCategoria()
   const reactivar = useReactivarCategoria()
@@ -31,12 +44,14 @@ export default function CategoriasPage() {
     {
       key: 'nombre',
       header: 'Nombre',
+      sortKey: 'nombre',
       render: (c) => <span className="font-semibold">{c.nombre}</span>,
     },
     { key: 'descripcion', header: 'Descripción', render: (c) => c.descripcion ?? '—' },
     {
       key: 'padre',
       header: 'Categoría padre',
+      sortKey: 'padre',
       render: (c) => (c.parent_id === null ? 'Raíz' : (c.parent_nombre ?? `#${c.parent_id}`)),
     },
   ]
@@ -86,6 +101,12 @@ export default function CategoriasPage() {
         <FilterBar
           search={filtros.search}
           onSearchChange={filtros.setSearch}
+          group={{
+            label: 'Agrupar por categoría',
+            value: filtros.grupo,
+            options: opcionesGrupo,
+            onChange: filtros.setGrupo,
+          }}
           estado={filtros.estado}
           onEstadoChange={filtros.setEstado}
           action={
@@ -107,6 +128,8 @@ export default function CategoriasPage() {
             rowKey={(c) => c.id}
             isLoading={isLoading}
             isInactive={(c) => c.deleted_at !== null}
+            orden={filtros.orden}
+            onOrdenChange={filtros.ordenarPor}
             emptyTitle="No hay categorías"
             emptyDescription="Probá con otros filtros o agregá una categoría nueva."
             actions={

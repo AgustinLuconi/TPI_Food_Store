@@ -44,13 +44,14 @@ export default function UsuariosPage() {
     {
       key: 'nombre',
       header: 'Nombre',
+      sortKey: 'nombre',
       render: (u) => (
         <span className="font-semibold">
           {u.apellido}, {u.nombre}
         </span>
       ),
     },
-    { key: 'email', header: 'Email', render: (u) => u.email },
+    { key: 'email', header: 'Email', sortKey: 'email', render: (u) => u.email },
     {
       key: 'roles',
       header: 'Roles',
@@ -128,9 +129,9 @@ export default function UsuariosPage() {
           searchPlaceholder="Buscar por nombre o email…"
           group={{
             label: 'Rol',
-            value: filtros.rol,
+            value: filtros.grupo,
             options: OPCIONES_ROL,
-            onChange: filtros.setRol,
+            onChange: filtros.setGrupo,
           }}
           estado={filtros.estado}
           onEstadoChange={filtros.setEstado}
@@ -153,6 +154,8 @@ export default function UsuariosPage() {
             rowKey={(u) => u.id}
             isLoading={isLoading}
             isInactive={(u) => u.deleted_at !== null}
+            orden={filtros.orden}
+            onOrdenChange={filtros.ordenarPor}
             emptyTitle="No hay usuarios"
             emptyDescription="Probá con otros filtros."
             actions={

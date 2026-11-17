@@ -4,10 +4,19 @@ import type { Paginated } from '@/shared/types/common'
 import type { ListParams, UsuarioCreateInput, UsuarioUpdateInput } from '../types'
 
 export const usuariosApi = {
-  list: ({ search, estado, page, size, rol }: ListParams) =>
+  /** El combo de agrupación de usuarios es el rol. */
+  list: ({ search, estado, page, size, grupo, orden }: ListParams) =>
     api
       .get<Paginated<Usuario>>('/usuarios', {
-        params: { search: search || undefined, rol: rol || undefined, estado, page, size },
+        params: {
+          search: search || undefined,
+          rol: grupo || undefined,
+          estado,
+          page,
+          size,
+          orden: orden?.campo,
+          sentido: orden?.sentido,
+        },
       })
       .then((r) => r.data),
 

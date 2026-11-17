@@ -20,7 +20,9 @@ const ITEMS: Item[] = [
 ]
 
 export function Sidebar() {
-  const hasRole = useAuthStore((s) => s.hasRole)
+  // Suscripción a los roles (no a la función hasRole, cuya referencia nunca cambia): así el menú
+  // se vuelve a renderizar si cambian los roles del usuario.
+  const roles = useAuthStore((s) => s.usuario?.roles)
   const abierto = useUiStore((s) => s.sidebarOpen)
   const cerrar = useUiStore((s) => s.setSidebarOpen)
 
@@ -45,7 +47,7 @@ export function Sidebar() {
           Food<span className="text-accent-100">Store</span>
         </div>
         <nav aria-label="Panel de administración" className="flex flex-col gap-1 px-3">
-          {ITEMS.filter((i) => hasRole(...i.roles)).map((item) => (
+          {ITEMS.filter((i) => i.roles.some((rol) => roles?.includes(rol))).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
