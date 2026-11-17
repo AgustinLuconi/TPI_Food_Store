@@ -195,6 +195,50 @@ def consumir_producto(
     ]
 
 
+def ingresar_producto(
+    uow: InventarioUnitOfWork,
+    producto_id: int,
+    cantidad: Decimal,
+    tipo: TipoMovimiento,
+    *,
+    motivo: str | None = None,
+    codigo_lote: str | None = None,
+    fecha_vencimiento: datetime | None = None,
+    orden_produccion_id: int | None = None,
+) -> MovimientoStock:
+    """Movimiento que SUMA al producto (ENTRADA o AJUSTE_POSITIVO). Con `codigo_lote` y `fecha_vencimiento`
+    crea además el lote. Lo usan la carga manual y la producción al completar una orden."""
+    lote_id = None
+    if codigo_lote and fecha_vencimiento:
+        vencimiento = _aware(fecha_vencimiento)
+        if vencimiento <= utcnow():
+            raise ValidationError(
+                "No se puede ingresar un lote ya vencido", code="LOTE_EXPIRED", field="fecha_vencimiento"
+            )
+        if uow.lotes.por_codigo(producto_id, codigo_lote):
+            raise ConflictError(
+                f"El lote {codigo_lote} ya existe para este producto", code="LOTE_DUPLICATED", field="codigo_lote"
+            )
+        lote_id = uow.lotes.create(
+            Lote(
+                producto_id=producto_id,
+                codigo_lote=codigo_lote,
+                fecha_vencimiento=vencimiento,
+                cantidad_inicial=cantidad,
+            )
+        ).id
+    return uow.mov_productos.create(
+        MovimientoStock(
+            producto_id=producto_id,
+            lote_id=lote_id,
+            orden_produccion_id=orden_produccion_id,
+            tipo_movimiento=tipo,
+            cantidad=cantidad,
+            motivo=motivo,
+        )
+    )
+
+
 def registrar_movimiento_producto(
     uow: InventarioUnitOfWork, producto_id: int, datos: MovimientoProductoCreate
 ) -> list[MovimientoRead]:
@@ -218,36 +262,15 @@ def registrar_movimiento_producto(
                 uow, producto_id, datos.cantidad, tipo, motivo=datos.motivo, solo_vigentes=False
             )
         else:
-            lote_id = None
-            if datos.codigo_lote and datos.fecha_vencimiento:
-                vencimiento = _aware(datos.fecha_vencimiento)
-                if vencimiento <= utcnow():
-                    raise ValidationError(
-                        "No se puede ingresar un lote ya vencido", code="LOTE_EXPIRED", field="fecha_vencimiento"
-                    )
-                if uow.lotes.por_codigo(producto_id, datos.codigo_lote):
-                    raise ConflictError(
-                        f"El lote {datos.codigo_lote} ya existe para este producto",
-                        code="LOTE_DUPLICATED",
-                        field="codigo_lote",
-                    )
-                lote_id = uow.lotes.create(
-                    Lote(
-                        producto_id=producto_id,
-                        codigo_lote=datos.codigo_lote,
-                        fecha_vencimiento=vencimiento,
-                        cantidad_inicial=datos.cantidad,
-                    )
-                ).id
             movimientos = [
-                uow.mov_productos.create(
-                    MovimientoStock(
-                        producto_id=producto_id,
-                        lote_id=lote_id,
-                        tipo_movimiento=tipo,
-                        cantidad=datos.cantidad,
-                        motivo=datos.motivo,
-                    )
+                ingresar_producto(
+                    uow,
+                    producto_id,
+                    datos.cantidad,
+                    tipo,
+                    motivo=datos.motivo,
+                    codigo_lote=datos.codigo_lote,
+                    fecha_vencimiento=datos.fecha_vencimiento,
                 )
             ]
         return [MovimientoRead.model_validate(m) for m in movimientos]

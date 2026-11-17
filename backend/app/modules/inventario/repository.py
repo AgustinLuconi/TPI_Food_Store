@@ -124,6 +124,21 @@ class MovimientoIngredienteRepository(_Ledger[MovimientoIngrediente]):
     owner_model = Ingrediente
     owner_attr = "ingrediente_id"
 
+    def por_orden(self, orden_id: int, signos: dict[str, int]) -> dict[int, Decimal]:
+        """Cantidad con signo de cada insumo en los movimientos de una orden de producción.
+
+        Con {RESERVA: 1} es lo que la orden planificó; con {RESERVA: 1, LIBERACION_RESERVA: -1}, lo que
+        sigue reservado.
+        """
+        stmt = (
+            select(
+                MovimientoIngrediente.ingrediente_id, func.coalesce(func.sum(_aporte(MovimientoIngrediente, signos)), 0)
+            )
+            .where(MovimientoIngrediente.orden_produccion_id == orden_id)
+            .group_by(MovimientoIngrediente.ingrediente_id)
+        )
+        return {ing_id: total for ing_id, total in self.session.exec(stmt).all() if total != 0}
+
 
 class LoteRepository(BaseRepository[Lote]):
     model = Lote
