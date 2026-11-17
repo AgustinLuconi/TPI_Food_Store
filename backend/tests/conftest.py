@@ -6,8 +6,11 @@
 - El UoW de prueba se inyecta con `app.dependency_overrides`, como prevé la arquitectura.
 """
 
+import atexit
 import os
 import secrets
+import shutil
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -21,6 +24,9 @@ TEST_DB_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ.setdefault("SECRET_KEY", secrets.token_urlsafe(48))
 os.environ["ENVIRONMENT"] = "development"
+# Las imágenes de los tests van a una carpeta temporal, nunca al proyecto.
+os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="foodstore-media-")
+atexit.register(shutil.rmtree, os.environ["MEDIA_DIR"], ignore_errors=True)
 
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -37,6 +43,8 @@ from app.modules.categorias.deps import get_categorias_uow  # noqa: E402
 from app.modules.categorias.uow import CategoriasUnitOfWork  # noqa: E402
 from app.modules.direcciones.deps import get_direcciones_uow  # noqa: E402
 from app.modules.direcciones.uow import DireccionesUnitOfWork  # noqa: E402
+from app.modules.productos.deps import get_productos_uow  # noqa: E402
+from app.modules.productos.uow import ProductosUnitOfWork  # noqa: E402
 from app.modules.usuarios.deps import get_usuarios_uow  # noqa: E402
 from app.modules.usuarios.uow import UsuariosUnitOfWork  # noqa: E402
 
@@ -48,6 +56,7 @@ UOW_DEPENDENCIES: dict[Callable, type[UnitOfWork]] = {
     get_usuarios_uow: UsuariosUnitOfWork,
     get_direcciones_uow: DireccionesUnitOfWork,
     get_categorias_uow: CategoriasUnitOfWork,
+    get_productos_uow: ProductosUnitOfWork,
 }
 
 
