@@ -2,8 +2,6 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
@@ -27,7 +25,8 @@ def create_app() -> FastAPI:
     )
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    # Sin el handler propio de slowapi: su RateLimitExceeded es una HTTPException de Starlette y el
+    # manejador global la responde con el formato de error estándar.
     register_exception_handlers(app)
 
     app.add_middleware(

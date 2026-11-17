@@ -8,8 +8,14 @@ from app.core.deps import CurrentUser, require_roles
 from app.core.schemas import Paginated
 from app.modules.usuarios import service
 from app.modules.usuarios.deps import get_usuarios_uow
-from app.modules.usuarios.repository import Estado
-from app.modules.usuarios.schemas import EstadoUpdate, RolesUpdate, UsuarioCreate, UsuarioRead, UsuarioUpdate
+from app.modules.usuarios.schemas import (
+    EstadoUpdate,
+    FiltrosUsuarios,
+    RolesUpdate,
+    UsuarioCreate,
+    UsuarioRead,
+    UsuarioUpdate,
+)
 from app.modules.usuarios.uow import UsuariosUnitOfWork
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
@@ -19,20 +25,10 @@ Uow = Annotated[UsuariosUnitOfWork, Depends(get_usuarios_uow)]
 
 
 @router.get("", response_model=Paginated[UsuarioRead])
-def listar_usuarios(
-    _: AdminUser,
-    uow: Uow,
-    search: str | None = None,
-    rol: str | None = None,
-    estado: Estado = "activos",
-    incluir_inactivos: bool = False,
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-):
-    """`estado` = activos (por defecto) | inactivos | todos. `incluir_inactivos=true` equivale a `todos`."""
-    if incluir_inactivos:
-        estado = "todos"
-    return service.listar(uow, search=search, rol=rol, estado=estado, page=page, size=size)
+def listar_usuarios(_: AdminUser, uow: Uow, filtros: Annotated[FiltrosUsuarios, Query()]):
+    """Filtros search, rol y estado (activos por defecto | inactivos | todos; `incluir_inactivos=true`
+    equivale a `todos`). Orden en el servidor por `nombre` o `email`, en `sentido` asc o desc."""
+    return service.listar(uow, filtros)
 
 
 @router.post("", status_code=201, response_model=UsuarioRead)

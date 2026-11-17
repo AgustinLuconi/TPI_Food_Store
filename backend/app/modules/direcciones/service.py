@@ -15,13 +15,14 @@ def _propia(uow: DireccionesUnitOfWork, usuario_id: int, direccion_id: int) -> D
 
 
 def listar(uow: DireccionesUnitOfWork, usuario_id: int) -> list[DireccionRead]:
+    """Direcciones activas del usuario, con la principal primero."""
     with uow:
         return [DireccionRead.model_validate(d) for d in uow.direcciones.list_by_usuario(usuario_id)]
 
 
 def crear(uow: DireccionesUnitOfWork, usuario_id: int, datos: DireccionCreate) -> DireccionRead:
+    """Alta con coordenadas opcionales. La primera dirección del usuario queda como principal (RN-17)."""
     with uow:
-        # La primera dirección del usuario queda como principal.
         es_principal = datos.es_principal or uow.direcciones.count_activas(usuario_id) == 0
         if es_principal:
             uow.direcciones.unset_principal(usuario_id)
@@ -33,6 +34,7 @@ def crear(uow: DireccionesUnitOfWork, usuario_id: int, datos: DireccionCreate) -
 
 
 def actualizar(uow: DireccionesUnitOfWork, usuario_id: int, direccion_id: int, datos: DireccionUpdate) -> DireccionRead:
+    """Edición parcial de una dirección propia; lat y lng siguen yendo juntas."""
     cambios = datos.model_dump(exclude_unset=True)
     with uow:
         direccion = _propia(uow, usuario_id, direccion_id)

@@ -6,8 +6,13 @@ from app.core.deps import CurrentUser, require_roles
 from app.core.schemas import Paginated
 from app.modules.categorias import service
 from app.modules.categorias.deps import get_categorias_uow
-from app.modules.categorias.repository import Estado
-from app.modules.categorias.schemas import CategoriaCreate, CategoriaNode, CategoriaRead, CategoriaUpdate
+from app.modules.categorias.schemas import (
+    CategoriaCreate,
+    CategoriaNode,
+    CategoriaRead,
+    CategoriaUpdate,
+    FiltrosCategorias,
+)
 from app.modules.categorias.uow import CategoriasUnitOfWork
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
@@ -24,19 +29,10 @@ def arbol_de_categorias(uow: Uow):
 
 # Declarada antes de /{categoria_id} para que "lista" no se interprete como un id.
 @router.get("/lista", response_model=Paginated[CategoriaRead])
-def listar_categorias(
-    _: AdminUser,
-    uow: Uow,
-    search: str | None = None,
-    estado: Estado = "activos",
-    incluir_inactivos: bool = False,
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-):
-    """Listado plano y paginado para el ABM. `estado` = activos | inactivos | todos."""
-    if incluir_inactivos:
-        estado = "todos"
-    return service.listar(uow, search=search, estado=estado, page=page, size=size)
+def listar_categorias(_: AdminUser, uow: Uow, filtros: Annotated[FiltrosCategorias, Query()]):
+    """Listado plano y paginado para el ABM. `estado` = activos | inactivos | todos. Agrupación por
+    categoría padre (`parent_id`) o solo raíces (`raiz=true`). Orden por `nombre` o `padre`."""
+    return service.listar(uow, filtros)
 
 
 @router.get("/{categoria_id}", response_model=CategoriaRead)

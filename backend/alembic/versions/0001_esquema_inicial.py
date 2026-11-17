@@ -235,7 +235,7 @@ def upgrade() -> None:
         sa.Column("producto_id", sa.BigInteger(), nullable=False),
         sa.Column("cat_id", sa.BigInteger(), nullable=False),
         sa.Column("es_principal", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.ForeignKeyConstraint(["cat_id"], ["categoria.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["cat_id"], ["categoria.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["producto_id"], ["producto.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("producto_id", "cat_id"),
     )
@@ -282,7 +282,7 @@ def upgrade() -> None:
         sa.Column("rol_codigo", sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False),
         sa.Column("asignado_por_id", sa.BigInteger(), nullable=True),
         sa.Column("asignado_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(["asignado_por_id"], ["usuario.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["asignado_por_id"], ["usuario.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["rol_codigo"], ["rol.codigo"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["usuario_id"], ["usuario.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("usuario_id", "rol_codigo"),
@@ -297,7 +297,7 @@ def upgrade() -> None:
         sa.Column("motivo", sqlmodel.sql.sqltypes.AutoString(length=120), nullable=True),
         sa.Column("fecha_registro", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.CheckConstraint("cantidad > 0", name="ck_mov_ingrediente_cantidad"),
-        sa.ForeignKeyConstraint(["ingrediente_id"], ["ingrediente.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["ingrediente_id"], ["ingrediente.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["orden_produccion_id"], ["orden_produccion.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -360,7 +360,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["estado_desde"], ["estado_pedido.codigo"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["estado_hasta"], ["estado_pedido.codigo"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["pedido_id"], ["pedido.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["usuario_id"], ["usuario.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["usuario_id"], ["usuario.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -385,7 +385,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["lote_id"], ["lote.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["orden_produccion_id"], ["orden_produccion.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["pedido_id"], ["pedido.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["producto_id"], ["producto.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["producto_id"], ["producto.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_movimiento_stock_fecha_registro"), "movimiento_stock", ["fecha_registro"], unique=False)
@@ -404,7 +404,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(["forma_pago_codigo"], ["forma_pago.codigo"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["pedido_id"], ["pedido.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["pedido_id"], ["pedido.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("idempotency_key"),
         sa.UniqueConstraint("mp_payment_id"),

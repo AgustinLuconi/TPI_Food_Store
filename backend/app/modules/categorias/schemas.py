@@ -1,6 +1,21 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.core.repository import Sentido
+from app.core.schemas import FiltrosDeListado
+
+OrdenCategorias = Literal["nombre", "padre"]
+
+
+class FiltrosCategorias(FiltrosDeListado):
+    """Query params de GET /categorias/lista. `parent_id` y `raiz` son el combo de agrupación."""
+
+    parent_id: int | None = Field(default=None, description="Solo las subcategorías directas de esta categoría")
+    raiz: bool = Field(default=False, description="Solo las categorías raíz (sin padre)")
+    orden: OrdenCategorias = "nombre"
+    sentido: Sentido = "asc"
 
 
 class CategoriaCreate(BaseModel):

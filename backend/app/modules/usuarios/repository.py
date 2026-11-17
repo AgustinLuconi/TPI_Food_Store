@@ -1,15 +1,17 @@
 """Acceso a datos de usuarios y roles. Sin lógica de negocio."""
 
 from collections.abc import Sequence
-from typing import Literal
 
 from sqlalchemy import delete, func, or_
 from sqlmodel import select
 
-from app.core.repository import BaseRepository
+from app.core.repository import BaseRepository, Sentido, ordenar
+from app.core.schemas import Estado
 from app.modules.usuarios.models import Rol, Usuario, UsuarioRol
+from app.modules.usuarios.schemas import OrdenUsuarios
 
-Estado = Literal["activos", "inactivos", "todos"]
+# Columnas por las que la grilla puede ordenar (sección 11.5: orden en el servidor).
+_COLUMNAS_DE_ORDEN = {"nombre": (Usuario.apellido, Usuario.nombre), "email": (Usuario.email,)}
 
 
 class RolRepository(BaseRepository[Rol]):
@@ -69,6 +71,8 @@ class UsuarioRepository(BaseRepository[Usuario]):
         search: str | None,
         rol: str | None,
         estado: Estado,
+        orden: OrdenUsuarios,
+        sentido: Sentido,
         page: int,
         size: int,
     ) -> tuple[Sequence[Usuario], int]:
@@ -87,4 +91,10 @@ class UsuarioRepository(BaseRepository[Usuario]):
         elif estado == "inactivos":
             filters.append(Usuario.deleted_at.is_not(None))  # type: ignore[attr-defined]
         # Los filtros de estado ya se aplicaron: se consulta incluyendo dados de baja.
-        return self.list(*filters, page=page, size=size, order_by=Usuario.apellido, include_deleted=True)
+        return self.list(
+            *filters,
+            page=page,
+            size=size,
+            order_by=ordenar(_COLUMNAS_DE_ORDEN[orden], sentido),
+            include_deleted=True,
+        )

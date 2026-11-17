@@ -94,7 +94,7 @@ async def _request_validation_handler(_: Request, exc: RequestValidationError) -
 
 async def _http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) else "Error"
-    code = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}.get(exc.status_code, "HTTP_ERROR")
+    code = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED", 429: "TOO_MANY_REQUESTS"}.get(exc.status_code, "HTTP_ERROR")
     return JSONResponse(
         status_code=exc.status_code,
         content=_body(detail, code),

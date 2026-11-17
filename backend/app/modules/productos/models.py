@@ -70,7 +70,8 @@ class ProductoCategoria(SQLModel, table=True):
     __tablename__ = "producto_categoria"
 
     producto_id: int = Field(sa_type=BigInteger, primary_key=True, foreign_key="producto.id", ondelete="CASCADE")
-    cat_id: int = Field(sa_type=BigInteger, primary_key=True, foreign_key="categoria.id", ondelete="CASCADE")
+    # Asociación (o--) en el ERD: RESTRICT. La composición es solo con Producto.
+    cat_id: int = Field(sa_type=BigInteger, primary_key=True, foreign_key="categoria.id", ondelete="RESTRICT")
     es_principal: bool = Field(default=False, nullable=False, sa_column_kwargs={"server_default": text("false")})
 
 
@@ -146,8 +147,9 @@ class MovimientoStock(SQLModel, table=True):
     )
 
     id: int | None = Field(sa_type=BigInteger, default=None, primary_key=True)
+    # Composición (Producto *-- MovimientoStock) en el ERD: CASCADE. Producto solo admite baja lógica.
     producto_id: int = Field(
-        sa_type=BigInteger, foreign_key="producto.id", ondelete="RESTRICT", nullable=False, index=True
+        sa_type=BigInteger, foreign_key="producto.id", ondelete="CASCADE", nullable=False, index=True
     )
     lote_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="lote.id", ondelete="RESTRICT")
     pedido_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="pedido.id", ondelete="RESTRICT")
@@ -167,8 +169,9 @@ class MovimientoIngrediente(SQLModel, table=True):
     __table_args__ = (CheckConstraint("cantidad > 0", name="ck_mov_ingrediente_cantidad"),)
 
     id: int | None = Field(sa_type=BigInteger, default=None, primary_key=True)
+    # Composición (Ingrediente *-- MovimientoIngrediente) en el ERD: CASCADE. Ingrediente solo admite baja lógica.
     ingrediente_id: int = Field(
-        sa_type=BigInteger, foreign_key="ingrediente.id", ondelete="RESTRICT", nullable=False, index=True
+        sa_type=BigInteger, foreign_key="ingrediente.id", ondelete="CASCADE", nullable=False, index=True
     )
     orden_produccion_id: int | None = Field(
         sa_type=BigInteger, default=None, foreign_key="orden_produccion.id", ondelete="RESTRICT"

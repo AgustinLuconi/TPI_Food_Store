@@ -94,6 +94,7 @@ class HistorialEstadoPedido(SQLModel, table=True):
         default=None, max_length=20, foreign_key="estado_pedido.codigo", ondelete="RESTRICT"
     )
     estado_hasta: str = Field(max_length=20, foreign_key="estado_pedido.codigo", ondelete="RESTRICT", nullable=False)
-    usuario_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="usuario.id", ondelete="SET NULL")
+    # Asociación (o--) sin marca SET NULL en el ERD: RESTRICT (Usuario solo admite baja lógica).
+    usuario_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="usuario.id", ondelete="RESTRICT")
     motivo: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = created_at_field(index=True)

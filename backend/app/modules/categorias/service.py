@@ -3,8 +3,13 @@
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.schemas import Paginated
 from app.modules.categorias.models import Categoria
-from app.modules.categorias.repository import Estado
-from app.modules.categorias.schemas import CategoriaCreate, CategoriaNode, CategoriaRead, CategoriaUpdate
+from app.modules.categorias.schemas import (
+    CategoriaCreate,
+    CategoriaNode,
+    CategoriaRead,
+    CategoriaUpdate,
+    FiltrosCategorias,
+)
 from app.modules.categorias.uow import CategoriasUnitOfWork
 
 
@@ -37,25 +42,37 @@ def arbol(uow: CategoriasUnitOfWork) -> list[CategoriaNode]:
     return raices
 
 
-def listar(
-    uow: CategoriasUnitOfWork, *, search: str | None, estado: Estado, page: int, size: int
-) -> Paginated[CategoriaRead]:
+def listar(uow: CategoriasUnitOfWork, filtros: FiltrosCategorias) -> Paginated[CategoriaRead]:
+    """Listado plano y paginado del ABM, con el nombre del padre resuelto en el servidor."""
+    if filtros.raiz and filtros.parent_id is not None:
+        raise ValidationError("Elegí una categoría padre o solo las raíces, no ambas", field="parent_id")
     with uow:
-        items, total = uow.categorias.search(search=search, estado=estado, page=page, size=size)
+        items, total = uow.categorias.search(
+            search=filtros.search,
+            estado=filtros.estado_efectivo,
+            parent_id=filtros.parent_id,
+            solo_raices=filtros.raiz,
+            orden=filtros.orden,
+            sentido=filtros.sentido,
+            page=filtros.page,
+            size=filtros.size,
+        )
         nombres = uow.categorias.nombres_por_id({c.parent_id for c in items if c.parent_id is not None})
         data = [
             CategoriaRead.model_validate(c).model_copy(update={"parent_nombre": nombres.get(c.parent_id)})  # type: ignore[arg-type]
             for c in items
         ]
-    return Paginated.build(data, total, page, size)
+    return Paginated.build(data, total, filtros.page, filtros.size)
 
 
 def obtener(uow: CategoriasUnitOfWork, categoria_id: int) -> CategoriaRead:
+    """Detalle de una categoría, aunque esté dada de baja (para poder reactivarla)."""
     with uow:
         return CategoriaRead.model_validate(_obtener(uow, categoria_id, incluir_baja=True))
 
 
 def crear(uow: CategoriasUnitOfWork, datos: CategoriaCreate) -> CategoriaRead:
+    """Alta. El padre debe estar activo y no puede haber dos hermanas activas con el mismo nombre."""
     with uow:
         _validar_padre(uow, datos.parent_id)
         if uow.categorias.existe_hermana(datos.parent_id, datos.nombre):
@@ -67,6 +84,7 @@ def crear(uow: CategoriasUnitOfWork, datos: CategoriaCreate) -> CategoriaRead:
 
 
 def actualizar(uow: CategoriasUnitOfWork, categoria_id: int, datos: CategoriaUpdate) -> CategoriaRead:
+    """Edición parcial. Cambiar el padre no puede crear un ciclo en el árbol."""
     cambios = datos.model_dump(exclude_unset=True)
     if "nombre" in cambios and cambios["nombre"] is None:
         raise ValidationError("El nombre no puede ser nulo", field="nombre")

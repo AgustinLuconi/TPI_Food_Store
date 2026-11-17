@@ -1,14 +1,23 @@
 """Repositorios base. Acceso a datos sin lógica de negocio y sin `commit()` (lo hace el UoW)."""
 
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
-from sqlalchemy import func
+from sqlalchemy import func, inspect
 from sqlmodel import Session, SQLModel, select
 
 from app.core.db_types import utcnow
 
 T = TypeVar("T", bound=SQLModel)
+
+Sentido = Literal["asc", "desc"]
+
+
+def ordenar(columnas: Sequence[Any], sentido: Sentido) -> list[Any]:
+    """Criterios de ORDER BY en el sentido pedido. Los nulos van primero en asc y últimos en desc."""
+    if sentido == "desc":
+        return [c.desc().nulls_last() for c in columnas]
+    return [c.asc().nulls_first() for c in columnas]
 
 
 class BaseRepository(Generic[T]):
@@ -39,13 +48,17 @@ class BaseRepository(Generic[T]):
         *filters: Any,
         page: int = 1,
         size: int = 20,
-        order_by: Any = None,
+        order_by: Sequence[Any] = (),
         include_deleted: bool = False,
     ) -> tuple[Sequence[T], int]:
-        """Devuelve (items de la página, total sin paginar)."""
+        """Devuelve (items de la página, total sin paginar).
+
+        El orden siempre termina en la clave primaria: con OFFSET, un orden con empates puede
+        repetir u omitir filas entre páginas, porque PostgreSQL no garantiza el orden de los empates.
+        """
         total = self.count(*filters, include_deleted=include_deleted)
         stmt = self._scoped(select(self.model).where(*filters), include_deleted)
-        stmt = stmt.order_by(order_by if order_by is not None else self.model.id)  # type: ignore[attr-defined]
+        stmt = stmt.order_by(*order_by, *inspect(self.model).primary_key)
         items = self.session.exec(stmt.offset((page - 1) * size).limit(size)).all()
         return items, total
 

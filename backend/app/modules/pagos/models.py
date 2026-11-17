@@ -23,7 +23,8 @@ class Pago(SQLModel, table=True):
     __tablename__ = "pago"
 
     id: int | None = Field(sa_type=BigInteger, default=None, primary_key=True)
-    pedido_id: int = Field(sa_type=BigInteger, foreign_key="pedido.id", ondelete="RESTRICT", nullable=False, index=True)
+    # Composición (Pedido *-- Pago) en el ERD: CASCADE. Un pedido nunca se borra: lo cierra la FSM.
+    pedido_id: int = Field(sa_type=BigInteger, foreign_key="pedido.id", ondelete="CASCADE", nullable=False, index=True)
     forma_pago_codigo: str = Field(max_length=20, foreign_key="forma_pago.codigo", ondelete="RESTRICT", nullable=False)
     monto: Decimal = Field(sa_type=Numeric(10, 2), nullable=False)
     # Campos de MercadoPago (Anexo B). mp_status usa el vocabulario de MercadoPago.

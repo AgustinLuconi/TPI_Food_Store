@@ -46,6 +46,7 @@ def _cuenta_activa(usuario: Usuario | None) -> bool:
 
 
 def registrar(uow: AuthUnitOfWork, datos: RegisterRequest) -> UsuarioRead:
+    """Registro público: siempre con rol CLIENT (RN-15). El email es único (409)."""
     with uow:
         # El email es único incluso entre usuarios dados de baja.
         if uow.usuarios.get_by_email(datos.email) is not None:
@@ -67,6 +68,8 @@ def registrar(uow: AuthUnitOfWork, datos: RegisterRequest) -> UsuarioRead:
 
 
 def login(uow: AuthUnitOfWork, email: str, password: str, ip: str) -> Sesion:
+    """OAuth2 Password Flow (sección 5.1): 401 genérico, 400 si la cuenta está bloqueada o dada de
+    baja y 429 tras demasiados intentos fallidos desde la misma IP."""
     ensure_login_allowed(ip)
     with uow:
         usuario = uow.usuarios.get_by_email(email)
@@ -112,6 +115,7 @@ def cerrar_sesion(uow: AuthUnitOfWork, usuario_id: int, refresh_token: str | Non
 
 
 def usuario_actual(uow: AuthUnitOfWork, usuario_id: int) -> UsuarioRead:
+    """Usuario autenticado con sus roles leídos de la base (GET /auth/me)."""
     with uow:
         usuario = uow.usuarios.get_by_id(usuario_id)
         if not _cuenta_activa(usuario):

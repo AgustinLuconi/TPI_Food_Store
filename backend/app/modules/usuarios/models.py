@@ -45,6 +45,6 @@ class UsuarioRol(SQLModel, table=True):
 
     usuario_id: int = Field(sa_type=BigInteger, primary_key=True, foreign_key="usuario.id", ondelete="CASCADE")
     rol_codigo: str = Field(primary_key=True, max_length=20, foreign_key="rol.codigo", ondelete="RESTRICT")
-    # Auditoría de la asignación.
-    asignado_por_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="usuario.id", ondelete="SET NULL")
+    # Auditoría de la asignación. Asociación (o--) en el ERD: RESTRICT.
+    asignado_por_id: int | None = Field(sa_type=BigInteger, default=None, foreign_key="usuario.id", ondelete="RESTRICT")
     asignado_at: datetime = timestamptz_field(default_now=True)

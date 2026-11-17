@@ -4,12 +4,19 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.schemas import Paginated
 from app.core.security import hash_password
 from app.modules.usuarios.models import Usuario
-from app.modules.usuarios.repository import Estado
-from app.modules.usuarios.schemas import EstadoUpdate, RolesUpdate, UsuarioCreate, UsuarioRead, UsuarioUpdate
+from app.modules.usuarios.schemas import (
+    EstadoUpdate,
+    FiltrosUsuarios,
+    RolesUpdate,
+    UsuarioCreate,
+    UsuarioRead,
+    UsuarioUpdate,
+)
 from app.modules.usuarios.uow import UsuariosUnitOfWork
 
 
 def to_read(usuario: Usuario, roles: list[str]) -> UsuarioRead:
+    """Arma la respuesta pública: nunca incluye password_hash (sección 5.2)."""
     return UsuarioRead(
         id=usuario.id,  # type: ignore[arg-type]
         nombre=usuario.nombre,
@@ -41,22 +48,23 @@ def _proteger_ultimo_admin(uow: UsuariosUnitOfWork, usuario: Usuario, accion: st
         raise ConflictError(f"No se puede {accion} al único administrador activo", code="LAST_ADMIN")
 
 
-def listar(
-    uow: UsuariosUnitOfWork,
-    *,
-    search: str | None,
-    rol: str | None,
-    estado: Estado,
-    page: int,
-    size: int,
-) -> Paginated[UsuarioRead]:
+def listar(uow: UsuariosUnitOfWork, filtros: FiltrosUsuarios) -> Paginated[UsuarioRead]:
+    """Listado paginado con búsqueda, rol, estado y orden resueltos en la base."""
     with uow:
-        if rol and uow.roles.get_by_codigo(rol) is None:
+        if filtros.rol and uow.roles.get_by_codigo(filtros.rol) is None:
             raise ValidationError("Rol inexistente", code="UNKNOWN_ROLE", field="rol")
-        items, total = uow.usuarios.search(search=search, rol=rol, estado=estado, page=page, size=size)
+        items, total = uow.usuarios.search(
+            search=filtros.search,
+            rol=filtros.rol,
+            estado=filtros.estado_efectivo,
+            orden=filtros.orden,
+            sentido=filtros.sentido,
+            page=filtros.page,
+            size=filtros.size,
+        )
         roles_map = uow.usuarios.get_roles_map([u.id for u in items])  # type: ignore[misc]
         data = [to_read(u, roles_map[u.id]) for u in items]  # type: ignore[index]
-    return Paginated.build(data, total, page, size)
+    return Paginated.build(data, total, filtros.page, filtros.size)
 
 
 def crear(uow: UsuariosUnitOfWork, datos: UsuarioCreate, admin_id: int) -> UsuarioRead:
@@ -83,12 +91,14 @@ def crear(uow: UsuariosUnitOfWork, datos: UsuarioCreate, admin_id: int) -> Usuar
 
 
 def obtener(uow: UsuariosUnitOfWork, usuario_id: int) -> UsuarioRead:
+    """Detalle con roles, aunque esté dado de baja (para poder reactivarlo)."""
     with uow:
         usuario = _obtener(uow, usuario_id, incluir_baja=True)
         return to_read(usuario, uow.usuarios.get_roles(usuario_id))
 
 
 def actualizar(uow: UsuariosUnitOfWork, usuario_id: int, datos: UsuarioUpdate) -> UsuarioRead:
+    """Edición parcial de los datos personales. El email sigue siendo único (409)."""
     cambios = datos.model_dump(exclude_unset=True)
     with uow:
         usuario = _obtener(uow, usuario_id)
@@ -104,6 +114,7 @@ def actualizar(uow: UsuariosUnitOfWork, usuario_id: int, datos: UsuarioUpdate) -
 
 
 def asignar_roles(uow: UsuariosUnitOfWork, usuario_id: int, datos: RolesUpdate, admin_id: int) -> UsuarioRead:
+    """Reemplaza los roles y registra quién los asignó. Rige desde el siguiente request del usuario."""
     with uow:
         usuario = _obtener(uow, usuario_id)
         desconocidos = set(datos.roles) - uow.roles.codigos()
@@ -118,6 +129,7 @@ def asignar_roles(uow: UsuariosUnitOfWork, usuario_id: int, datos: RolesUpdate, 
 
 
 def cambiar_estado(uow: UsuariosUnitOfWork, usuario_id: int, datos: EstadoUpdate, admin_id: int) -> UsuarioRead:
+    """Bloquea o desbloquea (disabled), independiente de la baja lógica. No se bloquea a uno mismo."""
     with uow:
         usuario = _obtener(uow, usuario_id)
         if datos.disabled:

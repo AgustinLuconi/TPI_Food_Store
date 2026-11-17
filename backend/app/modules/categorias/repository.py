@@ -1,14 +1,20 @@
 from collections.abc import Sequence
-from typing import Literal
 
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from sqlmodel import select
 
-from app.core.repository import BaseRepository
+from app.core.repository import BaseRepository, Sentido, ordenar
+from app.core.schemas import Estado
 from app.modules.categorias.models import Categoria
+from app.modules.categorias.schemas import OrdenCategorias
 from app.modules.productos.models import Producto, ProductoCategoria
 
-Estado = Literal["activos", "inactivos", "todos"]
+# Columnas por las que la grilla puede ordenar (sección 11.5: orden en el servidor).
+_Padre = aliased(Categoria)
+# Nombre del padre como subconsulta correlacionada: ordena sin agregar un JOIN al listado.
+_NOMBRE_DEL_PADRE = select(_Padre.nombre).where(_Padre.id == Categoria.parent_id).scalar_subquery()
+_COLUMNAS_DE_ORDEN = {"nombre": (Categoria.nombre,), "padre": (_NOMBRE_DEL_PADRE, Categoria.nombre)}
 
 
 class CategoriaRepository(BaseRepository[Categoria]):
@@ -67,12 +73,33 @@ class CategoriaRepository(BaseRepository[Categoria]):
             filtros.append(Categoria.id != excluir_id)
         return self.count(*filtros) > 0
 
-    def search(self, *, search: str | None, estado: Estado, page: int, size: int) -> tuple[Sequence[Categoria], int]:
+    def search(
+        self,
+        *,
+        search: str | None,
+        estado: Estado,
+        parent_id: int | None,
+        solo_raices: bool,
+        orden: OrdenCategorias,
+        sentido: Sentido,
+        page: int,
+        size: int,
+    ) -> tuple[Sequence[Categoria], int]:
         filtros = []
         if search:
             filtros.append(Categoria.nombre.ilike(f"%{search.strip()}%"))  # type: ignore[attr-defined]
+        if solo_raices:
+            filtros.append(Categoria.parent_id.is_(None))  # type: ignore[union-attr]
+        elif parent_id is not None:
+            filtros.append(Categoria.parent_id == parent_id)
         if estado == "activos":
             filtros.append(Categoria.deleted_at.is_(None))  # type: ignore[attr-defined]
         elif estado == "inactivos":
             filtros.append(Categoria.deleted_at.is_not(None))  # type: ignore[attr-defined]
-        return self.list(*filtros, page=page, size=size, order_by=Categoria.nombre, include_deleted=True)
+        return self.list(
+            *filtros,
+            page=page,
+            size=size,
+            order_by=ordenar(_COLUMNAS_DE_ORDEN[orden], sentido),
+            include_deleted=True,
+        )

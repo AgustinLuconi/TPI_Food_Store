@@ -1,10 +1,23 @@
 """Schemas del módulo usuarios (la respuesta nunca incluye password_hash)."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.repository import Sentido
+from app.core.schemas import FiltrosDeListado
 from app.core.security import validate_password_policy
+
+OrdenUsuarios = Literal["nombre", "email"]
+
+
+class FiltrosUsuarios(FiltrosDeListado):
+    """Query params de GET /usuarios (sección 6.2 y patrón de maestros de la sección 11.5)."""
+
+    rol: str | None = None
+    orden: OrdenUsuarios = "nombre"
+    sentido: Sentido = "asc"
 
 
 class UsuarioRead(BaseModel):
