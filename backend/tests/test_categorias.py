@@ -119,6 +119,42 @@ def test_lista_plana_para_el_abm_con_filtros(client):
     assert client.get(f"{API}/categorias/lista", params={"size": 2}).json()["pages"] == 2
 
 
+def test_agrupacion_por_categoria_padre(client):
+    """Sección 11.5: combo de agrupación. parent_id filtra las hijas directas; raiz=true, las raíces."""
+    login_admin(client)
+    pizzas = crear(client, "Pizzas")
+    empanadas = crear(client, "Empanadas")
+    crear(client, "Clásicas", pizzas["id"])
+    crear(client, "Especiales", pizzas["id"])
+    crear(client, "Clásicas", empanadas["id"])  # mismo nombre, otro padre
+
+    def nombres(**params) -> list[str]:
+        return [c["nombre"] for c in client.get(f"{API}/categorias/lista", params=params).json()["items"]]
+
+    assert nombres(parent_id=pizzas["id"]) == ["Clásicas", "Especiales"]
+    assert nombres(parent_id=empanadas["id"]) == ["Clásicas"]
+    assert nombres(raiz=True) == ["Empanadas", "Pizzas"]
+    r = client.get(f"{API}/categorias/lista", params={"raiz": True, "parent_id": pizzas["id"]})
+    assert r.status_code == 422 and r.json()["field"] == "parent_id"
+
+
+def test_orden_en_el_servidor_por_nombre_o_por_padre(client):
+    login_admin(client)
+    bebidas = crear(client, "Bebidas")
+    pizzas = crear(client, "Pizzas")
+    crear(client, "Muzzarella", pizzas["id"])
+    crear(client, "Aguas", bebidas["id"])
+
+    def filas(**params) -> list[tuple[str | None, str]]:
+        items = client.get(f"{API}/categorias/lista", params=params).json()["items"]
+        return [(c["parent_nombre"], c["nombre"]) for c in items]
+
+    assert [n for _, n in filas(orden="nombre", sentido="desc")] == ["Pizzas", "Muzzarella", "Bebidas", "Aguas"]
+    # Por padre: primero las raíces y después agrupadas por el nombre del padre.
+    assert filas(orden="padre") == [(None, "Bebidas"), (None, "Pizzas"), ("Bebidas", "Aguas"), ("Pizzas", "Muzzarella")]
+    assert client.get(f"{API}/categorias/lista", params={"orden": "descripcion"}).status_code == 422
+
+
 def test_reactivar(client):
     login_admin(client)
     padre = crear(client, "Padre")

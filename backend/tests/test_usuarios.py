@@ -28,6 +28,33 @@ def test_listado_paginado_con_filtros(client):
     assert client.get(f"{API}/usuarios", params={"rol": "INEXISTENTE"}).status_code == 422
 
 
+def test_orden_en_el_servidor(client):
+    """Sección 11.5: la grilla ordena en el servidor por la columna elegida, en ambos sentidos."""
+    for email in ("carla@test.com", "beto@test.com", "dario@test.com"):
+        crear_usuario(email)
+    login_admin(client)
+
+    def emails(**params) -> list[str]:
+        return [u["email"] for u in client.get(f"{API}/usuarios", params=params).json()["items"]]
+
+    todos = ["admin@foodstore.com", "beto@test.com", "carla@test.com", "dario@test.com"]
+    assert emails(orden="email") == todos
+    assert emails(orden="email", sentido="desc") == todos[::-1]
+    assert client.get(f"{API}/usuarios", params={"orden": "password_hash"}).status_code == 422
+
+
+def test_la_paginacion_es_estable_con_nombres_repetidos(client):
+    """Con OFFSET, un orden no total puede repetir u omitir filas: se desempata por id."""
+    ids = {crear_usuario(f"repetido{i}@test.com") for i in range(5)}  # todos "Pérez, Ana"
+    login_admin(client)
+
+    vistos = []
+    for page in range(1, 7):
+        items = client.get(f"{API}/usuarios", params={"size": 1, "page": page, "search": "repetido"}).json()["items"]
+        vistos += [u["id"] for u in items]
+    assert vistos == sorted(ids)  # cada usuario una sola vez y en orden de id
+
+
 def test_el_listado_nunca_expone_el_hash(client):
     login_admin(client)
     assert "password" not in client.get(f"{API}/usuarios").text
