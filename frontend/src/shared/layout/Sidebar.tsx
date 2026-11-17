@@ -15,8 +15,13 @@ interface Item {
 // Cada ítem se muestra solo a los roles con acceso. Es una ayuda visual: el backend autoriza igual.
 const ITEMS: Item[] = [
   { to: RUTAS.admin, label: 'Inicio', roles: ['ADMIN', 'STOCK', 'PEDIDOS'], end: true },
+  { to: RUTAS.adminProductos, label: 'Productos', roles: ['ADMIN', 'STOCK'] },
+  { to: RUTAS.adminIngredientes, label: 'Ingredientes', roles: ['ADMIN', 'STOCK'] },
+  { to: RUTAS.adminInventario, label: 'Inventario', roles: ['ADMIN', 'STOCK'] },
+  { to: RUTAS.adminProduccion, label: 'Producción', roles: ['ADMIN', 'STOCK'] },
   { to: RUTAS.adminCategorias, label: 'Categorías', roles: ['ADMIN'] },
   { to: RUTAS.adminUsuarios, label: 'Usuarios', roles: ['ADMIN'] },
+  { to: RUTAS.adminConfiguracion, label: 'Configuración', roles: ['ADMIN'] },
 ]
 
 export function Sidebar() {

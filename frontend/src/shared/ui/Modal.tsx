@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { cn } from './cn'
 
 interface ModalProps {
   open: boolean
@@ -6,13 +7,15 @@ interface ModalProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /** Para contenido con tablas. */
+  wide?: boolean
 }
 
 /**
  * Modal sobre el elemento <dialog> nativo: el navegador aporta el focus trap, el cierre con Esc
  * y el aislamiento del resto de la página (aria-modal implícito).
  */
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, wide = false }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
 
@@ -34,7 +37,10 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       onClick={(e) => {
         if (e.target === ref.current) onClose() // clic en el fondo
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl border border-surface-border bg-white p-0 text-navy-900 shadow-xl backdrop:bg-navy-900/50"
+      className={cn(
+        'm-auto w-[calc(100%-2rem)] rounded-xl border border-surface-border bg-white p-0 text-navy-900 shadow-xl backdrop:bg-navy-900/50',
+        wide ? 'max-w-4xl' : 'max-w-lg',
+      )}
     >
       {open && (
         <div className="flex flex-col">

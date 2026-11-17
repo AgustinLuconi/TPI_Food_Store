@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useDebounce } from '@/shared/hooks/useDebounce'
-import type { EstadoFiltro, Orden } from '@/shared/types/common'
-import type { ListParams } from '../types'
+import type { EstadoFiltro, ListParams, Orden } from '@/shared/types/common'
 
 const TAMANO_PAGINA = 10
 

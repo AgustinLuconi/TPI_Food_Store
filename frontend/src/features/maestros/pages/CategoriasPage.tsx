@@ -16,7 +16,7 @@ import {
   useOpcionesDeCategoria,
   useReactivarCategoria,
 } from '../hooks/useCategorias'
-import { useMaestroFilters } from '../hooks/useMaestroFilters'
+import { useMaestroFilters } from '@/shared/hooks/useMaestroFilters'
 import { GRUPO_RAIZ, type Categoria } from '../types'
 
 const VOLVER = { volverA: RUTAS.adminCategorias, volverLabel: 'Volver a categorías' }

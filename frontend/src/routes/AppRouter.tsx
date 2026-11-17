@@ -18,6 +18,11 @@ const RegisterPage = lazy(() => import('@/features/auth/pages/RegisterPage'))
 const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'))
 const CategoriasPage = lazy(() => import('@/features/maestros/pages/CategoriasPage'))
 const UsuariosPage = lazy(() => import('@/features/maestros/pages/UsuariosPage'))
+const ProductosPage = lazy(() => import('@/features/catalogo/pages/ProductosPage'))
+const IngredientesPage = lazy(() => import('@/features/catalogo/pages/IngredientesPage'))
+const InventarioPage = lazy(() => import('@/features/inventario/pages/InventarioPage'))
+const ProduccionPage = lazy(() => import('@/features/inventario/pages/ProduccionPage'))
+const ConfiguracionPage = lazy(() => import('@/features/configuracion/pages/ConfiguracionPage'))
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +61,17 @@ export const router = createBrowserRouter([
                     children: [
                       { path: RUTAS.adminCategorias, element: <CategoriasPage /> },
                       { path: RUTAS.adminUsuarios, element: <UsuariosPage /> },
+                      { path: RUTAS.adminConfiguracion, element: <ConfiguracionPage /> },
+                    ],
+                  },
+                  {
+                    // Catálogo (lectura y disponibilidad), inventario y producción: ADMIN y STOCK.
+                    element: <RoleBasedRoute allowedRoles={['ADMIN', 'STOCK']} />,
+                    children: [
+                      { path: RUTAS.adminProductos, element: <ProductosPage /> },
+                      { path: RUTAS.adminIngredientes, element: <IngredientesPage /> },
+                      { path: RUTAS.adminInventario, element: <InventarioPage /> },
+                      { path: RUTAS.adminProduccion, element: <ProduccionPage /> },
                     ],
                   },
                 ],

@@ -22,3 +22,13 @@ export interface Orden {
   campo: string
   sentido: 'asc' | 'desc'
 }
+
+export interface ListParams {
+  search: string
+  estado: EstadoFiltro
+  page: number
+  size: number
+  /** Valor del combo de agrupación: un rol en usuarios; una categoría padre (o "raiz") en categorías. */
+  grupo?: string
+  orden?: Orden
+}

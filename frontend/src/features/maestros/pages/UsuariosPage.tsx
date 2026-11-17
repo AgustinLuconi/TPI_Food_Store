@@ -12,7 +12,7 @@ import { Card } from '@/shared/ui/Card'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { UsuarioFormModal } from '../components/UsuarioFormModal'
-import { useMaestroFilters } from '../hooks/useMaestroFilters'
+import { useMaestroFilters } from '@/shared/hooks/useMaestroFilters'
 import {
   useAnularUsuario,
   useBloquearUsuario,

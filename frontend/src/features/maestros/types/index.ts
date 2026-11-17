@@ -1,15 +1,6 @@
 import type { Rol } from '@/shared/types/auth'
-import type { EstadoFiltro, Orden } from '@/shared/types/common'
 
-export interface ListParams {
-  search: string
-  estado: EstadoFiltro
-  page: number
-  size: number
-  /** Valor del combo de agrupación: un rol en usuarios; una categoría padre (o "raiz") en categorías. */
-  grupo?: string
-  orden?: Orden
-}
+export type { ListParams } from '@/shared/types/common'
 
 /** Valor del combo de agrupación de categorías que pide solo las raíces. */
 export const GRUPO_RAIZ = 'raiz'
