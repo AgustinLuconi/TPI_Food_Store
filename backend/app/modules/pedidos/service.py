@@ -311,6 +311,12 @@ def crear_pedido(
             )
 
         productos = _validar_lineas(uow, datos.items)
+        # Se bloquean los productos EN ORDEN de id y ANTES de insertar nada que los referencie: una fila con clave
+        # foránea hacia el producto ya toma un bloqueo compartido sobre él, y pedir después el exclusivo haría que
+        # dos pedidos simultáneos se esperen mutuamente (deadlock). Así se serializan sin bloquearse en círculo ni
+        # vender el mismo stock.
+        for producto_id in sorted(productos):
+            uow.mov_productos.bloquear(producto_id)
         subtotal = sum((productos[i.producto_id].precio_base * i.cantidad for i in datos.items), Decimal(0))
         subtotal = subtotal.quantize(CENTAVO)
         costo_envio = _costo_de_envio(uow, usuario, datos.direccion_id, subtotal)
@@ -345,10 +351,6 @@ def crear_pedido(
             for ingrediente_id in linea.exclusiones:
                 uow.detalles.agregar_exclusion(detalle.id, ingrediente_id)  # type: ignore[arg-type]
 
-        # Se bloquean los productos EN ORDEN de id antes de calcular el disponible: dos pedidos simultáneos
-        # no pueden vender el mismo stock ni bloquearse en círculo.
-        for producto_id in sorted(productos):
-            uow.mov_productos.bloquear(producto_id)
         for linea in datos.items:
             _reservar(uow, pedido.id, linea, productos[linea.producto_id])  # type: ignore[arg-type]
 
