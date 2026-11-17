@@ -24,7 +24,7 @@ class CurrentUser:
     roles: frozenset[str]
 
 
-def get_current_user(request: Request, uow: UsuariosUnitOfWork = Depends(get_usuarios_uow)) -> CurrentUser:
+def _cargar_usuario(request: Request, uow: UsuariosUnitOfWork) -> CurrentUser:
     token = request.cookies.get(ACCESS_COOKIE)
     if not token:
         raise UnauthorizedError("No autenticado", code="NOT_AUTHENTICATED")
@@ -42,6 +42,19 @@ def get_current_user(request: Request, uow: UsuariosUnitOfWork = Depends(get_usu
             apellido=usuario.apellido,
             roles=roles,
         )
+
+
+def get_current_user(request: Request, uow: UsuariosUnitOfWork = Depends(get_usuarios_uow)) -> CurrentUser:
+    return _cargar_usuario(request, uow)
+
+
+def get_optional_user(request: Request, uow: UsuariosUnitOfWork = Depends(get_usuarios_uow)) -> CurrentUser | None:
+    """Para endpoints públicos que muestran más a los roles de gestión: sin sesión válida devuelve
+    None en lugar de responder 401 (el visitante simplemente ve la vista pública)."""
+    try:
+        return _cargar_usuario(request, uow)
+    except UnauthorizedError:
+        return None
 
 
 def require_roles(*allowed: str) -> Callable[[CurrentUser], CurrentUser]:
