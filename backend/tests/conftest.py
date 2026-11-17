@@ -41,6 +41,8 @@ from app.modules.auth.deps import get_auth_uow  # noqa: E402
 from app.modules.auth.uow import AuthUnitOfWork  # noqa: E402
 from app.modules.categorias.deps import get_categorias_uow  # noqa: E402
 from app.modules.categorias.uow import CategoriasUnitOfWork  # noqa: E402
+from app.modules.config.deps import get_config_uow  # noqa: E402
+from app.modules.config.uow import ConfigUnitOfWork  # noqa: E402
 from app.modules.direcciones.deps import get_direcciones_uow  # noqa: E402
 from app.modules.direcciones.uow import DireccionesUnitOfWork  # noqa: E402
 from app.modules.inventario.deps import get_inventario_uow  # noqa: E402
@@ -63,6 +65,7 @@ UOW_DEPENDENCIES: dict[Callable, type[UnitOfWork]] = {
     get_productos_uow: ProductosUnitOfWork,
     get_inventario_uow: InventarioUnitOfWork,
     get_produccion_uow: ProduccionUnitOfWork,
+    get_config_uow: ConfigUnitOfWork,
 }
 
 
