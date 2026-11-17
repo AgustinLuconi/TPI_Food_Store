@@ -3,6 +3,8 @@
 Lanza excepciones de dominio, nunca HTTPException, y no hace commit (lo hace el Unit of Work).
 """
 
+from decimal import Decimal
+
 from app.core import media
 from app.core.deps import CurrentUser
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -57,11 +59,16 @@ def _categorias_read(filas: list[tuple[int, str, bool]]) -> list[CategoriaDelPro
     return [CategoriaDelProducto(id=i, nombre=n, es_principal=p) for i, n, p in filas]
 
 
-def _producto_item(producto: Producto, categorias: list[tuple[int, str, bool]]) -> ProductoItem:
-    return ProductoItem.model_validate(producto).model_copy(update={"categorias": _categorias_read(categorias)})
+def _producto_item(
+    producto: Producto, categorias: list[tuple[int, str, bool]], stock: tuple[Decimal, Decimal] | None = None
+) -> ProductoItem:
+    item = ProductoItem.model_validate(producto).model_copy(update={"categorias": _categorias_read(categorias)})
+    if stock is not None:
+        item.stock_real, item.stock_disponible = stock
+    return item
 
 
-def _producto_read(uow: ProductosUnitOfWork, producto: Producto) -> ProductoRead:
+def _producto_read(uow: ProductosUnitOfWork, producto: Producto, *, con_stock: bool = True) -> ProductoRead:
     receta = uow.recetas.de_producto(producto.id)  # type: ignore[arg-type]
     categorias = uow.productos.categorias_de([producto.id])[producto.id]  # type: ignore[list-item,index]
     ingredientes = [
@@ -75,13 +82,22 @@ def _producto_read(uow: ProductosUnitOfWork, producto: Producto) -> ProductoRead
         )
         for fila, ing in receta
     ]
-    return ProductoRead.model_validate(producto).model_copy(
+    detalle = ProductoRead.model_validate(producto).model_copy(
         update={
             "categorias": _categorias_read(categorias),
             "ingredientes": ingredientes,
             "alergenos": sorted({i.nombre for i in ingredientes if i.es_alergeno}),
         }
     )
+    if con_stock:
+        detalle.stock_real, detalle.stock_disponible = uow.mov_productos.stocks([producto.id])[producto.id]  # type: ignore[list-item,index]
+    return detalle
+
+
+def _ingrediente_read(uow: ProductosUnitOfWork, ingrediente: Ingrediente) -> IngredienteRead:
+    lectura = IngredienteRead.model_validate(ingrediente)
+    lectura.stock_real, lectura.stock_disponible = uow.mov_ingredientes.stocks([ingrediente.id])[ingrediente.id]  # type: ignore[list-item,index]
+    return lectura
 
 
 def _validar_categorias(uow: ProductosUnitOfWork, categoria_ids: list[int]) -> None:
@@ -112,14 +128,17 @@ def listar_productos(
             size=filtros.size,
         )
         categorias = uow.productos.categorias_de([p.id for p in items])  # type: ignore[misc]
-        data = [_producto_item(p, categorias[p.id]) for p in items]  # type: ignore[index]
+        ids = [p.id for p in items]  # type: ignore[misc]
+        # El stock exacto es información interna: el público solo ve `disponible`.
+        stocks = uow.mov_productos.stocks(ids) if _es_gestion(usuario) else {}
+        data = [_producto_item(p, categorias[p.id], stocks.get(p.id)) for p in items]  # type: ignore[index]
     return Paginated.build(data, total, filtros.page, filtros.size)
 
 
 def obtener_producto(uow: ProductosUnitOfWork, producto_id: int, usuario: CurrentUser | None) -> ProductoRead:
     """Detalle con categorías, receta y alérgenos."""
     with uow:
-        return _producto_read(uow, _obtener_producto(uow, producto_id, usuario))
+        return _producto_read(uow, _obtener_producto(uow, producto_id, usuario), con_stock=_es_gestion(usuario))
 
 
 def crear_producto(uow: ProductosUnitOfWork, datos: ProductoCreate) -> ProductoRead:
@@ -311,19 +330,24 @@ def listar_ingredientes(uow: ProductosUnitOfWork, filtros: FiltrosIngredientes) 
             page=filtros.page,
             size=filtros.size,
         )
-        data = [IngredienteRead.model_validate(i) for i in items]
+        stocks = uow.mov_ingredientes.stocks([i.id for i in items])  # type: ignore[misc]
+        data = []
+        for i in items:
+            lectura = IngredienteRead.model_validate(i)
+            lectura.stock_real, lectura.stock_disponible = stocks[i.id]  # type: ignore[index]
+            data.append(lectura)
     return Paginated.build(data, total, filtros.page, filtros.size)
 
 
 def obtener_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int) -> IngredienteRead:
     with uow:
-        return IngredienteRead.model_validate(_obtener_ingrediente(uow, ingrediente_id, incluir_baja=True))
+        return _ingrediente_read(uow, _obtener_ingrediente(uow, ingrediente_id, incluir_baja=True))
 
 
 def crear_ingrediente(uow: ProductosUnitOfWork, datos: IngredienteCreate) -> IngredienteRead:
     with uow:
         _nombre_libre(uow, datos.nombre)
-        return IngredienteRead.model_validate(uow.ingredientes.create(Ingrediente(**datos.model_dump())))
+        return _ingrediente_read(uow, uow.ingredientes.create(Ingrediente(**datos.model_dump())))
 
 
 def actualizar_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int, datos: IngredienteUpdate) -> IngredienteRead:
@@ -343,7 +367,7 @@ def actualizar_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int, datos:
                 field="es_elaborado",
             )
         uow.ingredientes.update(ingrediente, cambios)
-        return IngredienteRead.model_validate(ingrediente)
+        return _ingrediente_read(uow, ingrediente)
 
 
 def eliminar_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int) -> None:
@@ -366,7 +390,7 @@ def reactivar_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int) -> Ingr
         if ingrediente.deleted_at is None:
             raise ConflictError("El ingrediente ya está activo", code="ALREADY_ACTIVE")
         uow.ingredientes.restore(ingrediente)
-        return IngredienteRead.model_validate(ingrediente)
+        return _ingrediente_read(uow, ingrediente)
 
 
 # ----------------------------------------------------------------------------------------------

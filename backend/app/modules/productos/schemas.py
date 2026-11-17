@@ -126,6 +126,8 @@ class ProductoRead(BaseModel):
     categorias: list[CategoriaDelProducto] = []
     ingredientes: list[IngredienteDelProducto] = []
     alergenos: list[str] = []
+    stock_real: Decimal | None = None  # solo lo ven ADMIN y STOCK
+    stock_disponible: Decimal | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
@@ -144,6 +146,8 @@ class ProductoItem(BaseModel):
     disponible: bool
     stock_minimo: int
     categorias: list[CategoriaDelProducto] = []
+    stock_real: Decimal | None = None  # solo lo ven ADMIN y STOCK
+    stock_disponible: Decimal | None = None
     deleted_at: datetime | None = None
 
 
@@ -191,6 +195,8 @@ class IngredienteRead(BaseModel):
     es_alergeno: bool
     es_elaborado: bool
     stock_minimo: int
+    stock_real: Decimal | None = None  # solo lo ven ADMIN y STOCK
+    stock_disponible: Decimal | None = None
     deleted_at: datetime | None = None
 
 

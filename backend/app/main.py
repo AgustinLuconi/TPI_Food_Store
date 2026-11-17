@@ -11,6 +11,7 @@ from app.core.rate_limit import limiter
 from app.modules.auth.router import router as auth_router
 from app.modules.categorias.router import router as categorias_router
 from app.modules.direcciones.router import router as direcciones_router
+from app.modules.inventario.router import router as inventario_router
 from app.modules.productos.router import ingredientes_router, productos_router
 from app.modules.usuarios.router import router as usuarios_router
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(categorias_router, prefix=API_PREFIX)
     app.include_router(productos_router, prefix=API_PREFIX)
     app.include_router(ingredientes_router, prefix=API_PREFIX)
+    app.include_router(inventario_router, prefix=API_PREFIX)
 
     # Imágenes de productos. Con Docker las sirve Nginx directamente desde el volumen; en desarrollo, la app.
     media_dir().mkdir(parents=True, exist_ok=True)
