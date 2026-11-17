@@ -111,7 +111,7 @@ Los usuarios `cliente@`, `stock@` y `pedidos@foodstore.com` usan la misma clave 
 ```bash
 # Backend (requiere la base levantada): crea sola la base de prueba `foodstore_test`, aplica las migraciones y siembra los datos.
 cd backend
-pytest                               # 212 tests
+pytest                               # 216 tests
 pytest --cov=app                     # cobertura (98 %)
 ruff check . && ruff format --check .
 alembic check                        # modelos y migraciones no divergen
@@ -154,6 +154,10 @@ repository → model`; ninguna capa importa de una superior. Los services lanzan
 - **Idempotencia:** crear un pedido y registrar un pago exigen la cabecera `Idempotency-Key` (UUID).
   Repetirla devuelve el mismo resultado (200) sin duplicar nada; dos requests simultáneos con la misma clave
   se serializan con un bloqueo asesor de PostgreSQL.
+- **Concurrencia:** `tests/test_concurrencia.py` lanza hilos reales con conexiones propias (los demás tests usan una
+  sola conexión y no ven carreras): pedidos simultáneos que no sobrevenden, la misma `Idempotency-Key` en paralelo,
+  varios cajeros cobrando el mismo pedido y órdenes de producción que compiten por insumos. Encontró un deadlock real
+  al crear pedidos, ya corregido: los productos se bloquean antes de insertar las líneas que los referencian.
 - **Geografía:** el ray casting y la distancia Haversine están aislados detrás del puerto
   `CoberturaRepository`, de modo que se puedan reemplazar por PostGIS sin tocar el service ni el router.
 
