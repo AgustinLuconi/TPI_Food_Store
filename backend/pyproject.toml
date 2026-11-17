@@ -5,7 +5,7 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/db/seed.py"]
+omit = ["app/db/seed.py", "app/db/demo.py"]
 
 [tool.ruff]
 line-length = 120
