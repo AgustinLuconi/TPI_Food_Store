@@ -118,27 +118,32 @@ def lotes_de_producto(uow: InventarioUnitOfWork, producto_id: int) -> list[LoteR
         ]
 
 
-def lotes_por_vencer(uow: InventarioUnitOfWork, dias: int) -> list[LotePorVencer]:
-    """Lotes con stock que vencen dentro de `dias` días o que ya vencieron (para darlos de baja con MERMA)."""
-    with uow:
-        ahora = utcnow()
-        candidatos = uow.lotes.vencen_antes_de(ahora + timedelta(days=dias))
-        stocks = uow.mov_productos.stock_de_lotes([lote.id for lote, _ in candidatos])  # type: ignore[misc]
-        resultado = []
-        for lote, nombre in candidatos:
-            real, disponible = stocks.get(lote.id, (CERO, CERO))  # type: ignore[arg-type]
-            if real <= 0:
-                continue
-            base = _lote_read(lote, real, disponible, ahora)
-            resultado.append(
-                LotePorVencer(
-                    **base.model_dump(),
-                    producto_id=lote.producto_id,
-                    producto_nombre=nombre,
-                    dias_restantes=(lote.fecha_vencimiento - ahora).days,
-                )
+def calcular_lotes_por_vencer(uow: InventarioUnitOfWork, dias: int) -> list[LotePorVencer]:
+    """Lotes con stock que vencen dentro de `dias` días o que ya vencieron (para darlos de baja con MERMA).
+    Se usa DENTRO de una transacción abierta (el panel de métricas lo reutiliza)."""
+    ahora = utcnow()
+    candidatos = uow.lotes.vencen_antes_de(ahora + timedelta(days=dias))
+    stocks = uow.mov_productos.stock_de_lotes([lote.id for lote, _ in candidatos])  # type: ignore[misc]
+    resultado = []
+    for lote, nombre in candidatos:
+        real, disponible = stocks.get(lote.id, (CERO, CERO))  # type: ignore[arg-type]
+        if real <= 0:
+            continue
+        base = _lote_read(lote, real, disponible, ahora)
+        resultado.append(
+            LotePorVencer(
+                **base.model_dump(),
+                producto_id=lote.producto_id,
+                producto_nombre=nombre,
+                dias_restantes=(lote.fecha_vencimiento - ahora).days,
             )
-        return resultado
+        )
+    return resultado
+
+
+def lotes_por_vencer(uow: InventarioUnitOfWork, dias: int) -> list[LotePorVencer]:
+    with uow:
+        return calcular_lotes_por_vencer(uow, dias)
 
 
 def consumir_producto(

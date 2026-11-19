@@ -47,6 +47,8 @@ from app.modules.direcciones.deps import get_direcciones_uow  # noqa: E402
 from app.modules.direcciones.uow import DireccionesUnitOfWork  # noqa: E402
 from app.modules.inventario.deps import get_inventario_uow  # noqa: E402
 from app.modules.inventario.uow import InventarioUnitOfWork  # noqa: E402
+from app.modules.metricas.deps import get_metricas_uow  # noqa: E402
+from app.modules.metricas.uow import MetricasUnitOfWork  # noqa: E402
 from app.modules.pagos.deps import get_pagos_uow  # noqa: E402
 from app.modules.pedidos.deps import get_pedidos_uow  # noqa: E402
 from app.modules.pedidos.uow import PedidosUnitOfWork  # noqa: E402
@@ -71,6 +73,7 @@ UOW_DEPENDENCIES: dict[Callable, type[UnitOfWork]] = {
     get_config_uow: ConfigUnitOfWork,
     get_pedidos_uow: PedidosUnitOfWork,
     get_pagos_uow: PedidosUnitOfWork,
+    get_metricas_uow: MetricasUnitOfWork,
 }
 
 

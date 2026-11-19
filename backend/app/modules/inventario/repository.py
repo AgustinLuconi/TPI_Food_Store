@@ -26,7 +26,7 @@ M = TypeVar("M", MovimientoStock, MovimientoIngrediente)
 CERO = Decimal(0)
 
 
-def _aporte(modelo: Any, signos: dict[str, int]) -> Any:
+def aporte(modelo: Any, signos: dict[str, int]) -> Any:
     """cantidad × signo según el tipo de movimiento."""
     signo = case(*[(modelo.tipo_movimiento == tipo, s) for tipo, s in signos.items()], else_=0)
     return modelo.cantidad * signo
@@ -48,7 +48,7 @@ class _Ledger(AppendOnlyRepository[M], Generic[M]):
         self.session.exec(select(self.owner_model.id).where(self.owner_model.id == owner_id).with_for_update())  # type: ignore[call-overload]
 
     def stock(self, owner_id: int, signos: dict[str, int], *, lote_id: int | None = None) -> Decimal:
-        stmt = select(func.coalesce(func.sum(_aporte(self.model, signos)), 0)).where(self.owner_column == owner_id)
+        stmt = select(func.coalesce(func.sum(aporte(self.model, signos)), 0)).where(self.owner_column == owner_id)
         if lote_id is not None:
             stmt = stmt.where(self.model.lote_id == lote_id)  # type: ignore[attr-defined]
         return self.session.exec(stmt).one()
@@ -67,8 +67,8 @@ class _Ledger(AppendOnlyRepository[M], Generic[M]):
         stmt = (
             select(
                 self.owner_column,
-                func.coalesce(func.sum(_aporte(self.model, SIGNO_REAL)), 0),
-                func.coalesce(func.sum(_aporte(self.model, SIGNO_DISPONIBLE)), 0),
+                func.coalesce(func.sum(aporte(self.model, SIGNO_REAL)), 0),
+                func.coalesce(func.sum(aporte(self.model, SIGNO_DISPONIBLE)), 0),
             )
             .where(self.owner_column.in_(owner_ids))
             .group_by(self.owner_column)
@@ -114,7 +114,7 @@ class MovimientoStockRepository(_Ledger[MovimientoStock]):
             select(
                 MovimientoStock.producto_id,
                 MovimientoStock.lote_id,
-                func.coalesce(func.sum(_aporte(MovimientoStock, SIGNO_RESERVADO)), 0),
+                func.coalesce(func.sum(aporte(MovimientoStock, SIGNO_RESERVADO)), 0),
             )
             .where(MovimientoStock.pedido_id == pedido_id)
             .group_by(MovimientoStock.producto_id, MovimientoStock.lote_id)
@@ -126,8 +126,8 @@ class MovimientoStockRepository(_Ledger[MovimientoStock]):
         stmt = (
             select(
                 MovimientoStock.lote_id,
-                func.coalesce(func.sum(_aporte(MovimientoStock, SIGNO_REAL)), 0),
-                func.coalesce(func.sum(_aporte(MovimientoStock, SIGNO_DISPONIBLE)), 0),
+                func.coalesce(func.sum(aporte(MovimientoStock, SIGNO_REAL)), 0),
+                func.coalesce(func.sum(aporte(MovimientoStock, SIGNO_DISPONIBLE)), 0),
             )
             .where(filtro, MovimientoStock.lote_id.is_not(None))  # type: ignore[union-attr]
             .group_by(MovimientoStock.lote_id)
@@ -148,7 +148,7 @@ class MovimientoIngredienteRepository(_Ledger[MovimientoIngrediente]):
         """
         stmt = (
             select(
-                MovimientoIngrediente.ingrediente_id, func.coalesce(func.sum(_aporte(MovimientoIngrediente, signos)), 0)
+                MovimientoIngrediente.ingrediente_id, func.coalesce(func.sum(aporte(MovimientoIngrediente, signos)), 0)
             )
             .where(MovimientoIngrediente.orden_produccion_id == orden_id)
             .group_by(MovimientoIngrediente.ingrediente_id)
