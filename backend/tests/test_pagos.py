@@ -149,3 +149,20 @@ def test_el_pago_no_confirma_si_el_pedido_no_existe_ni_deja_registros_sueltos(ti
     pagar(t.pedidos, p, monto="1")  # rechazado
     assert crear_pedido(t.cliente, [linea(t.empanada)]).status_code == 201  # la sesión sigue sana
     assert t.cliente.get(f"{API}/pagos/{p['id']}").status_code == 404
+
+
+def test_formas_de_pago_habilitadas(tienda, uow_factory):
+    t = tienda
+    # el seed deja MercadoPago deshabilitada hasta el Anexo B
+    assert [f["codigo"] for f in t.cliente.get(f"{API}/pagos/formas").json()] == ["EFECTIVO", "TRANSFERENCIA"]
+    assert t.cliente.get(f"{API}/pagos/formas").json()[0] == {"codigo": "EFECTIVO", "nombre": "Efectivo"}
+    assert TestClient(t.cliente.app).get(f"{API}/pagos/formas").status_code == 401
+
+    uow = uow_factory(PedidosUnitOfWork)
+    with uow:
+        uow.formas_pago.update(uow.formas_pago.get_by_id("MERCADOPAGO"), {"habilitado": True})
+    assert [f["codigo"] for f in t.cliente.get(f"{API}/pagos/formas").json()] == [
+        "EFECTIVO",
+        "MERCADOPAGO",
+        "TRANSFERENCIA",
+    ]

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Response
 from app.core.deps import CurrentUser, IdempotencyKey, get_current_user, require_roles
 from app.modules.pagos import service
 from app.modules.pagos.deps import get_pagos_uow
-from app.modules.pagos.schemas import PagoCreate, PagoRead
+from app.modules.pagos.schemas import FormaPagoRead, PagoCreate, PagoRead
 from app.modules.pedidos.uow import PedidosUnitOfWork
 
 router = APIRouter(prefix="/pagos", tags=["pagos"])
@@ -15,6 +15,12 @@ router = APIRouter(prefix="/pagos", tags=["pagos"])
 Uow = Annotated[PedidosUnitOfWork, Depends(get_pagos_uow)]
 Autenticado = Annotated[CurrentUser, Depends(get_current_user)]
 Personal = Annotated[CurrentUser, Depends(require_roles("ADMIN", "PEDIDOS"))]
+
+
+@router.get("/formas", response_model=list[FormaPagoRead])
+def formas_de_pago(_: Autenticado, uow: Uow):
+    """Formas de pago habilitadas para el checkout. Va antes de `/{pedido_id}` para que no se confunda con un id."""
+    return service.formas_habilitadas(uow)
 
 
 @router.post("/{pedido_id}", status_code=201, response_model=PagoRead)

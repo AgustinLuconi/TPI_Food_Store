@@ -24,3 +24,10 @@ class PagoRead(BaseModel):
     mp_status_detail: str | None
     external_reference: str
     created_at: datetime
+
+
+class FormaPagoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    codigo: str
+    nombre: str

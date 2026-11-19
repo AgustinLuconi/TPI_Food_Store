@@ -3,7 +3,7 @@
 from app.core.deps import CurrentUser
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.modules.pagos.models import Pago
-from app.modules.pagos.schemas import PagoCreate, PagoRead
+from app.modules.pagos.schemas import FormaPagoRead, PagoCreate, PagoRead
 from app.modules.pedidos import service as pedidos
 from app.modules.pedidos.uow import PedidosUnitOfWork
 
@@ -64,3 +64,9 @@ def obtener_pago(uow: PedidosUnitOfWork, pedido_id: int, usuario: CurrentUser) -
         if pago is None:
             raise NotFoundError("El pedido todavía no tiene un pago registrado", code="PAYMENT_NOT_FOUND")
         return PagoRead.model_validate(pago)
+
+
+def formas_habilitadas(uow: PedidosUnitOfWork) -> list[FormaPagoRead]:
+    """Las formas de pago que el checkout ofrece (FormaPago.habilitado = true)."""
+    with uow:
+        return [FormaPagoRead.model_validate(f) for f in uow.formas_pago.habilitadas()]

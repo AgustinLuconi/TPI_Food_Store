@@ -92,3 +92,7 @@ class HistorialRepository(AppendOnlyRepository[HistorialEstadoPedido]):
 
 class FormaPagoRepository(BaseRepository[FormaPago]):
     model = FormaPago
+
+    def habilitadas(self) -> Sequence[FormaPago]:
+        stmt = select(FormaPago).where(FormaPago.habilitado.is_(True)).order_by(FormaPago.codigo)  # type: ignore[attr-defined]
+        return self.session.exec(stmt).all()
