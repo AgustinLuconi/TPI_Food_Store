@@ -196,7 +196,7 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | Horarios | Las franjas no cruzan la medianoche, el cierre es exclusivo y las activas de un día no pueden solaparse. `estado-local` informa la próxima apertura solo cuando está cerrado. |
 | Días bloqueados | Se guardan como fecha de calendario (medianoche UTC). |
 | Zonas superpuestas | Si un punto cae en varias zonas activas gana la de menor id. |
-| `POST /envio/cotizar` fuera de cobertura | Responde 200 con `dentro_de_cobertura: false` (es informativo); el 422 llega recién al crear el pedido (RN-14). |
+| `POST /envio/cotizar` | Fuera de toda zona responde **422** `OUTSIDE_COVERAGE` (sección 10.2: sin zona no hay distancia ni costo que cotizar), igual que al crear el pedido. El pedido mínimo, en cambio, solo se informa con `cumple_minimo` (la cotización existe). La respuesta 200 conserva `dentro_de_cobertura` por el contrato de la sección 6.7, pero siempre vale `true`; el frontend lee el motivo del código de error. |
 | Errores de línea del pedido | Producto no disponible, exclusión inválida y stock insuficiente responden 409; dirección, cobertura y pedido mínimo, 422. |
 | Ajeno es 404 | Un pedido, un pago o una dirección de otra persona responde 404 y no revela que existe. |
 | Cancelar un pedido pagado | Libera el stock pero no hay reembolso automático (fuera del alcance de la Fase 2). |

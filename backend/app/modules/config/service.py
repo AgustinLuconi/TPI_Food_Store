@@ -214,8 +214,12 @@ def desactivar_zona(uow: ConfigUnitOfWork, zona_id: int) -> None:
 # ==============================================================================================
 
 
-def calcular_cotizacion(uow: ConfigUnitOfWork, datos: CotizacionRequest) -> CotizacionRead:
+def calcular_cotizacion(uow: ConfigUnitOfWork, datos: CotizacionRequest, *, campo: str = "lat") -> CotizacionRead:
     """Zona que contiene el punto, distancia desde el local y costo = tarifa_base + km × tarifa_por_km.
+
+    Fuera de toda zona activa no hay cotización posible (no hay distancia ni costo que calcular): 422
+    `OUTSIDE_COVERAGE` (sección 10.2). El pedido mínimo, en cambio, es una propiedad de una cotización que sí
+    existe y solo se informa en `cumple_minimo`. `campo` es el campo del request al que se atribuye el error.
     Se usa DENTRO de una transacción abierta (el pedido la reutiliza para congelar el costo de envío)."""
     local = _local(uow)
     if local.lat_origen is None or local.lng_origen is None:
@@ -223,7 +227,7 @@ def calcular_cotizacion(uow: ConfigUnitOfWork, datos: CotizacionRequest) -> Coti
     punto = (datos.lat, datos.lng)
     zona = uow.cobertura.zona_que_contiene(punto)
     if zona is None:
-        return CotizacionRead(dentro_de_cobertura=False)
+        raise ValidationError("La dirección está fuera de las zonas de cobertura", code="OUTSIDE_COVERAGE", field=campo)
     distancia = round(uow.cobertura.distancia_km((local.lat_origen, local.lng_origen), punto), 2)
     costo = (zona.tarifa_base + Decimal(str(distancia)) * zona.tarifa_por_km).quantize(CENTAVO, ROUND_HALF_UP)
     return CotizacionRead(

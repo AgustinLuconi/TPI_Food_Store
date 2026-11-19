@@ -236,8 +236,11 @@ class ZonaCotizada(BaseModel):
 
 
 class CotizacionRead(BaseModel):
+    """Una cotización existe solo si la dirección está dentro de una zona (si no, 422): por eso siempre trae
+    todos los datos y `dentro_de_cobertura` es `true`."""
+
     dentro_de_cobertura: bool
-    zona: ZonaCotizada | None = None
-    distancia_km: float | None = None
-    costo_envio: Decimal | None = None
-    cumple_minimo: bool = False
+    zona: ZonaCotizada
+    distancia_km: float
+    costo_envio: Decimal
+    cumple_minimo: bool

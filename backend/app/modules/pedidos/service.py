@@ -257,19 +257,17 @@ def _costo_de_envio(
             code="ADDRESS_WITHOUT_COORDS",
             field="direccion_id",
         )
+    # Fuera de toda zona lanza 422 OUTSIDE_COVERAGE (atribuido a la dirección).
     cotizacion = config.calcular_cotizacion(
-        uow, CotizacionRequest(lat=direccion.lat, lng=direccion.lng, subtotal=subtotal)
+        uow, CotizacionRequest(lat=direccion.lat, lng=direccion.lng, subtotal=subtotal), campo="direccion_id"
     )
-    if not cotizacion.dentro_de_cobertura:
-        raise ValidationError(
-            "La dirección está fuera de las zonas de cobertura", code="OUTSIDE_COVERAGE", field="direccion_id"
-        )
     if not cotizacion.cumple_minimo:
-        minimo = cotizacion.zona.pedido_minimo if cotizacion.zona else 0
         raise ValidationError(
-            f"El subtotal no alcanza el pedido mínimo de la zona ({minimo})", code="BELOW_MINIMUM", field="items"
+            f"El subtotal no alcanza el pedido mínimo de la zona ({cotizacion.zona.pedido_minimo})",
+            code="BELOW_MINIMUM",
+            field="items",
         )
-    return cotizacion.costo_envio or Decimal("0.00")
+    return cotizacion.costo_envio
 
 
 def _reservar(uow: PedidosUnitOfWork, pedido_id: int, linea: LineaCreate, producto: Producto) -> None:

@@ -481,16 +481,27 @@ def test_pedido_minimo_de_la_zona(client):
     assert cotizar(comprador, *DENTRO, "0").json()["cumple_minimo"] is False
 
 
-def test_cotizar_fuera_de_toda_zona_o_con_la_zona_dada_de_baja(client):
+def test_cotizar_fuera_de_toda_zona_es_422(client):
+    """Sección 10.2: «Fuera de toda zona: 422». Sin zona no hay distancia ni costo que calcular."""
     comprador = cliente(client)
-    afuera = cotizar(comprador, -34.70, -58.30).json()
-    assert afuera["dentro_de_cobertura"] is False and afuera["zona"] is None
-    assert afuera["costo_envio"] is None and afuera["distancia_km"] is None and afuera["cumple_minimo"] is False
+    r = cotizar(comprador, -34.70, -58.30)
+    assert r.status_code == 422, r.text
+    assert r.json()["code"] == "OUTSIDE_COVERAGE" and r.json()["field"] == "lat"
+    assert "dentro_de_cobertura" not in r.json()  # el error usa el formato estándar {detail, code, field}
 
+    # una zona dada de baja no cubre: el mismo punto que antes cotizaba ahora es 422
+    assert cotizar(comprador, *DENTRO).status_code == 200
     admin = login_admin(TestClient(client.app))
     centro = next(z for z in admin.get(f"{CONFIG}/zonas").json() if z["nombre"] == "Zona Centro")
     admin.delete(f"{CONFIG}/zonas/{centro['id']}")
-    assert cotizar(comprador, *DENTRO).json()["dentro_de_cobertura"] is False  # una zona inactiva no cubre
+    r = cotizar(comprador, *DENTRO)
+    assert (r.status_code, r.json()["code"]) == (422, "OUTSIDE_COVERAGE")
+
+
+def test_el_pedido_minimo_solo_se_informa_en_la_cotizacion(client):
+    """Debajo del mínimo la cotización existe (200) y lo avisa con cumple_minimo; no es un error."""
+    r = cotizar(cliente(client), *DENTRO, "100")
+    assert r.status_code == 200 and r.json()["cumple_minimo"] is False and r.json()["dentro_de_cobertura"] is True
 
 
 def test_zonas_superpuestas_gana_la_de_menor_id_y_cada_una_tiene_su_tarifa(client):
