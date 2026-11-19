@@ -84,7 +84,7 @@ function Detalle({ producto }: { producto: ProductoDetalle }) {
             className="aspect-[4/3] w-full rounded-xl object-cover"
           />
         ) : (
-          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl bg-surface-border text-navy-500">
+          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl bg-surface-border text-navy-700">
             Sin foto
           </div>
         )}

@@ -159,11 +159,7 @@ export function SeccionPedidosPersonal() {
     <Seccion titulo="Pedidos">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {ESTADOS_DE_LA_COLA.map((e, i) => (
-          <Link
-            key={e}
-            to={`${RUTAS.adminPedidos}?estado=${e}`}
-            aria-label={`${NOMBRE[e]}: ver los pedidos`}
-          >
+          <Link key={e} to={`${RUTAS.adminPedidos}?estado=${e}`}>
             <KpiCard titulo={NOMBRE[e]} valor={conteos[i].data ?? '…'} ayuda="Ver el listado" />
           </Link>
         ))}

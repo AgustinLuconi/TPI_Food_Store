@@ -7,18 +7,11 @@ export function CartButton() {
   const cantidad = useCartStore((s) => s.itemCount())
   const abrir = useUiStore((s) => s.setCartOpen)
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={() => abrir(true)}
-      aria-label={`Abrir el carrito (${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'})`}
-    >
+    <Button variant="secondary" size="sm" onClick={() => abrir(true)}>
       Carrito
-      <span
-        aria-hidden="true"
-        className="rounded-full bg-accent-600 px-2 text-xs font-bold text-white"
-      >
-        {cantidad}
+      <span className="rounded-full bg-navy-900 px-2 text-xs font-bold text-white">{cantidad}</span>
+      <span className="sr-only">
+        {cantidad === 1 ? 'unidad en el carrito' : 'unidades en el carrito'}
       </span>
     </Button>
   )

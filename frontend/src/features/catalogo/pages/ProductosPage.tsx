@@ -54,7 +54,7 @@ export default function ProductosPage() {
         return src ? (
           <img src={src} alt="" className="size-12 rounded-lg object-cover" />
         ) : (
-          <span className="flex size-12 items-center justify-center rounded-lg bg-surface-border text-xs text-navy-500">
+          <span className="flex size-12 items-center justify-center rounded-lg bg-surface-border text-xs text-navy-700">
             Sin foto
           </span>
         )

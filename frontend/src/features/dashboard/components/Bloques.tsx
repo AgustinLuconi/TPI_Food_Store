@@ -90,6 +90,7 @@ export function Cargando({ alto = 'h-64' }: { alto?: string }) {
   return (
     <div
       aria-busy="true"
+      role="status"
       aria-label="Cargando"
       className={`${alto} w-full animate-pulse rounded-xl bg-surface-border`}
     />

@@ -38,8 +38,17 @@ export function ProductoCard({ producto }: { producto: ProductoItem }) {
             className={`aspect-[4/3] w-full object-cover ${producto.disponible ? '' : 'opacity-50 grayscale'}`}
           />
         ) : (
-          <div className="flex aspect-[4/3] w-full items-center justify-center bg-surface-border text-sm text-navy-500">
-            Sin foto
+          <div className="flex aspect-[4/3] w-full items-center justify-center bg-surface-border text-navy-700">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="size-10 fill-none stroke-current"
+              strokeWidth="1.5"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="9" cy="10" r="1.5" />
+              <path d="m4 18 5-5 4 4 3-3 4 4" />
+            </svg>
           </div>
         )}
       </Link>
