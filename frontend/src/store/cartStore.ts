@@ -10,15 +10,22 @@ export interface CartLine {
   precio: number
   cantidad: number
   exclusiones: number[]
+  /** Para mostrar "Sin queso" sin volver a pedir el producto. */
+  exclusionesNombres: string[]
 }
 
-export type NewCartLine = Omit<CartLine, 'lineId' | 'cantidad'> & { cantidad?: number }
+export type NewCartLine = Omit<CartLine, 'lineId' | 'cantidad' | 'exclusionesNombres'> & {
+  cantidad?: number
+  exclusionesNombres?: string[]
+}
 
 interface CartState {
   lines: CartLine[]
   addItem: (item: NewCartLine) => void
   setQuantity: (lineId: string, cantidad: number) => void
   removeItem: (lineId: string) => void
+  /** Reemplaza los precios referenciales por los actuales (productoId → precio). */
+  updatePrices: (precios: Record<number, number>) => void
   clear: () => void
   itemCount: () => number
   subtotal: () => number
@@ -51,7 +58,12 @@ export const useCartStore = create<CartState>()(
             }
           }
           const lineId = crypto.randomUUID()
-          return { lines: [...state.lines, { ...item, lineId, cantidad }] }
+          return {
+            lines: [
+              ...state.lines,
+              { ...item, exclusionesNombres: item.exclusionesNombres ?? [], lineId, cantidad },
+            ],
+          }
         }),
       setQuantity: (lineId, cantidad) =>
         set((state) => ({
@@ -62,6 +74,12 @@ export const useCartStore = create<CartState>()(
         })),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((l) => l.lineId !== lineId) })),
+      updatePrices: (precios) =>
+        set((state) => ({
+          lines: state.lines.map((l) =>
+            precios[l.productoId] === undefined ? l : { ...l, precio: precios[l.productoId] },
+          ),
+        })),
       clear: () => set({ lines: [] }),
       itemCount: () => get().lines.reduce((total, l) => total + l.cantidad, 0),
       subtotal: () => get().lines.reduce((total, l) => total + l.precio * l.cantidad, 0),

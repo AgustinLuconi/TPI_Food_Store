@@ -2,14 +2,17 @@ import { useState } from 'react'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import type { EstadoFiltro, ListParams, Orden } from '@/shared/types/common'
 
-const TAMANO_PAGINA = 10
+const TAMANO_PAGINA_POR_DEFECTO = 10
 
 /**
  * Estado de filtros compartido por todas las pantallas de maestros (sección 11.5):
  * búsqueda con debounce, combo de agrupación (rol, categoría), estado (Activos por defecto),
  * orden en el servidor y página. Cualquier cambio de filtro u orden vuelve a la primera página.
  */
-export function useMaestroFilters(ordenInicial: Orden = { campo: 'nombre', sentido: 'asc' }) {
+export function useMaestroFilters(
+  ordenInicial: Orden = { campo: 'nombre', sentido: 'asc' },
+  tamano: number = TAMANO_PAGINA_POR_DEFECTO,
+) {
   const [search, setSearchState] = useState('')
   const [estado, setEstadoState] = useState<EstadoFiltro>('activos')
   const [grupo, setGrupoState] = useState('')
@@ -21,7 +24,7 @@ export function useMaestroFilters(ordenInicial: Orden = { campo: 'nombre', senti
     search: debouncedSearch.trim(),
     estado,
     page,
-    size: TAMANO_PAGINA,
+    size: tamano,
     grupo: grupo || undefined,
     orden,
   }
@@ -52,6 +55,11 @@ export function useMaestroFilters(ordenInicial: Orden = { campo: 'nombre', senti
           ? { campo, sentido: actual.sentido === 'asc' ? 'desc' : 'asc' }
           : { campo, sentido: 'asc' },
       )
+      setPage(1)
+    },
+    /** Orden elegido desde un combo (el catálogo del cliente), no desde un encabezado de tabla. */
+    fijarOrden: (nuevo: Orden) => {
+      setOrden(nuevo)
       setPage(1)
     },
     setPage,

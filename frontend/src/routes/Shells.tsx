@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
 import { Outlet, useNavigate } from 'react-router'
 import { useLogout } from '@/features/auth/hooks/useAuth'
+import { CartButton } from '@/features/carrito/components/CartButton'
+import { CartDrawer } from '@/features/carrito/components/CartDrawer'
 import { ConfirmHost } from '@/shared/components/ConfirmHost'
 import { AdminLayout } from '@/shared/layout/AdminLayout'
 import { PublicLayout } from '@/shared/layout/PublicLayout'
@@ -30,7 +32,10 @@ export function PublicShell() {
     <PublicLayout
       loggingOut={logout.isPending}
       onLogout={() => logout.mutate(undefined, { onSettled: () => navigate(RUTAS.inicio) })}
-    />
+      acciones={<CartButton />}
+    >
+      <CartDrawer />
+    </PublicLayout>
   )
 }
 

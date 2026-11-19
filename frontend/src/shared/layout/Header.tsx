@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { RUTAS } from '@/shared/lib/rutas'
 import { ROLES_PERSONAL } from '@/shared/types/auth'
@@ -7,12 +8,15 @@ import { useAuthStore } from '@/store/authStore'
 interface HeaderProps {
   onLogout: () => void
   loggingOut?: boolean
+  /** Acciones propias de la tienda (el carrito); las inyecta la ruta porque shared/ no conoce las features. */
+  acciones?: ReactNode
 }
 
-export function Header({ onLogout, loggingOut = false }: HeaderProps) {
+export function Header({ onLogout, loggingOut = false, acciones }: HeaderProps) {
   // Suscripción por selector: el header no se re-renderiza por cambios ajenos del store.
   const usuario = useAuthStore((s) => s.usuario)
   const esPersonal = usuario?.roles.some((r) => ROLES_PERSONAL.includes(r)) ?? false
+  const esCliente = usuario?.roles.includes('CLIENT') ?? false
 
   return (
     <header className="border-b border-surface-border bg-white">
@@ -21,6 +25,7 @@ export function Header({ onLogout, loggingOut = false }: HeaderProps) {
           Food<span className="text-accent-700">Store</span>
         </Link>
         <nav aria-label="Principal" className="flex items-center gap-2">
+          {acciones}
           {usuario ? (
             <>
               {esPersonal && (
@@ -30,6 +35,22 @@ export function Header({ onLogout, loggingOut = false }: HeaderProps) {
                 >
                   Panel
                 </Link>
+              )}
+              {esCliente && (
+                <>
+                  <Link
+                    to={RUTAS.pedidos}
+                    className="rounded-lg px-3 py-2 text-sm font-semibold text-navy-700 hover:bg-surface-muted"
+                  >
+                    Mis pedidos
+                  </Link>
+                  <Link
+                    to={RUTAS.direcciones}
+                    className="rounded-lg px-3 py-2 text-sm font-semibold text-navy-700 hover:bg-surface-muted"
+                  >
+                    Direcciones
+                  </Link>
+                </>
               )}
               <Link
                 to={RUTAS.perfil}

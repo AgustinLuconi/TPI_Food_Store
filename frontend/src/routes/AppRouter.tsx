@@ -7,7 +7,12 @@ import { RoleBasedRoute } from './RoleBasedRoute'
 import { AdminShell, PublicShell, RootShell } from './Shells'
 
 // Páginas cargadas con lazy (+ Suspense en RootShell): cada una es un chunk aparte.
-const Home = lazy(() => import('@/pages/Home'))
+const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
+const DireccionesPage = lazy(() => import('@/features/direcciones/pages/DireccionesPage'))
+const MisPedidosPage = lazy(() => import('@/features/pedidos/pages/MisPedidosPage'))
+const PedidoDetallePage = lazy(() => import('@/features/pedidos/pages/PedidoDetallePage'))
+const CatalogoPage = lazy(() => import('@/features/catalogo/pages/CatalogoPage'))
+const ProductoDetallePage = lazy(() => import('@/features/catalogo/pages/ProductoDetallePage'))
 const AdminHome = lazy(() => import('@/pages/AdminHome'))
 const Success = lazy(() => import('@/pages/Success'))
 const ErrorPage = lazy(() => import('@/pages/Error'))
@@ -34,13 +39,26 @@ export const router = createBrowserRouter([
         // Sitio público con header y footer.
         element: <PublicShell />,
         children: [
-          { path: RUTAS.inicio, element: <Home /> },
+          { path: RUTAS.inicio, element: <CatalogoPage /> },
+          { path: '/producto/:id', element: <ProductoDetallePage /> },
           { path: RUTAS.exito, element: <Success /> },
           { path: RUTAS.error, element: <ErrorPage /> },
           { path: RUTAS.noAutorizado, element: <Unauthorized /> },
           {
             element: <ProtectedRoute />,
-            children: [{ path: RUTAS.perfil, element: <ProfilePage /> }],
+            children: [
+              { path: RUTAS.perfil, element: <ProfilePage /> },
+              {
+                // Pedir es del cliente: el personal gestiona pedidos desde el panel.
+                element: <RoleBasedRoute allowedRoles={['CLIENT']} />,
+                children: [
+                  { path: RUTAS.checkout, element: <CheckoutPage /> },
+                  { path: RUTAS.direcciones, element: <DireccionesPage /> },
+                  { path: RUTAS.pedidos, element: <MisPedidosPage /> },
+                  { path: '/pedidos/:id', element: <PedidoDetallePage /> },
+                ],
+              },
+            ],
           },
           { path: '*', element: <NotFound /> },
         ],

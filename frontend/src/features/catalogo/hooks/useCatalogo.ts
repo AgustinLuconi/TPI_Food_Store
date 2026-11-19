@@ -128,3 +128,12 @@ export function useGuardarReceta(tipo: TipoReceta, id: number) {
     onSuccess: invalidar,
   })
 }
+
+/** Detalle de un producto para la tienda. Un 404 es un resultado normal (producto dado de baja): sin reintentos. */
+export function useProductoDetalle(id: number) {
+  return useQuery({
+    queryKey: [...catalogoKeys.productos, 'detalle', id],
+    queryFn: () => productosApi.get(id),
+    retry: false,
+  })
+}

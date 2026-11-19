@@ -75,3 +75,19 @@ export interface FiltrosProductos {
 export const TIPO_INGREDIENTE = { alergeno: 'alergeno', elaborado: 'elaborado' } as const
 
 export const UNIDADES_SUGERIDAS = ['KG', 'G', 'L', 'ML', 'UN'] as const
+
+/** Ingrediente de la receta de un producto, tal como lo ve el cliente en el detalle. */
+export interface IngredienteDelProducto {
+  ingrediente_id: number
+  nombre: string
+  es_alergeno: boolean
+  cantidad_requerida: string
+  unidad_medida: string
+  /** Solo un ingrediente removible permite pedir el producto "sin" él (RN-12). */
+  es_removible: boolean
+}
+
+export interface ProductoDetalle extends ProductoItem {
+  ingredientes: IngredienteDelProducto[]
+  alergenos: string[]
+}

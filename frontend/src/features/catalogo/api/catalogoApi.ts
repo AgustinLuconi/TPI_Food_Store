@@ -8,6 +8,7 @@ import {
   type IngredienteInput,
   type LineaReceta,
   type ProductoInput,
+  type ProductoDetalle,
   type ProductoItem,
 } from '../types'
 
@@ -46,6 +47,9 @@ export const productosApi = {
         },
       })
       .then((r) => r.data),
+
+  /** Detalle con categorías, receta y alérgenos (público). */
+  get: (id: number) => api.get<ProductoDetalle>(`/productos/${id}`).then((r) => r.data),
 
   create: (input: ProductoInput) => api.post<ProductoItem>('/productos', input).then((r) => r.data),
 
