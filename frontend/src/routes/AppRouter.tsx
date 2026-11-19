@@ -7,6 +7,8 @@ import { RoleBasedRoute } from './RoleBasedRoute'
 import { AdminShell, PublicShell, RootShell } from './Shells'
 
 // Páginas cargadas con lazy (+ Suspense en RootShell): cada una es un chunk aparte.
+const GestionDePedidosPage = lazy(() => import('@/features/pedidos/pages/GestionDePedidosPage'))
+const GestionDePedidoPage = lazy(() => import('@/features/pedidos/pages/GestionDePedidoPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const DireccionesPage = lazy(() => import('@/features/direcciones/pages/DireccionesPage'))
 const MisPedidosPage = lazy(() => import('@/features/pedidos/pages/MisPedidosPage'))
@@ -80,6 +82,13 @@ export const router = createBrowserRouter([
                       { path: RUTAS.adminCategorias, element: <CategoriasPage /> },
                       { path: RUTAS.adminUsuarios, element: <UsuariosPage /> },
                       { path: RUTAS.adminConfiguracion, element: <ConfiguracionPage /> },
+                    ],
+                  },
+                  {
+                    element: <RoleBasedRoute allowedRoles={['ADMIN', 'PEDIDOS']} />,
+                    children: [
+                      { path: RUTAS.adminPedidos, element: <GestionDePedidosPage /> },
+                      { path: '/admin/pedidos/:id', element: <GestionDePedidoPage /> },
                     ],
                   },
                   {

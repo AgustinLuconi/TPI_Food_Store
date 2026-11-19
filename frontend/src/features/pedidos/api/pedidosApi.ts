@@ -19,6 +19,26 @@ export const pedidosApi = {
       })
       .then((r) => r.data),
 
+  /** Listado del personal: además del estado, filtra por fechas (días del calendario del local). */
+  listGestion: ({
+    estado,
+    page,
+    size,
+    desde,
+    hasta,
+  }: FiltrosPedidos & { desde?: string; hasta?: string }) =>
+    api
+      .get<Paginated<PedidoItem>>('/pedidos', {
+        params: {
+          estado: estado || undefined,
+          page,
+          size,
+          desde: desde || undefined,
+          hasta: hasta || undefined,
+        },
+      })
+      .then((r) => r.data),
+
   get: (id: number) => api.get<Pedido>(`/pedidos/${id}`).then((r) => r.data),
 
   /** La Idempotency-Key se genera UNA vez por intento: un doble clic devuelve el mismo pedido. */

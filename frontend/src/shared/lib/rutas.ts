@@ -13,6 +13,8 @@ export const RUTAS = {
   admin: '/admin',
   adminCategorias: '/admin/categorias',
   adminUsuarios: '/admin/usuarios',
+  adminPedidos: '/admin/pedidos',
+  adminPedido: (id: number | string) => `/admin/pedidos/${id}`,
   adminProductos: '/admin/productos',
   adminIngredientes: '/admin/ingredientes',
   adminInventario: '/admin/inventario',

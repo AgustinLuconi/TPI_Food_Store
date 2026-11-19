@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import { RUTAS } from '@/shared/lib/rutas'
 import type { Rol } from '@/shared/types/auth'
 import { Card } from '@/shared/ui/Card'
@@ -56,7 +57,7 @@ const ACCESOS: Acceso[] = [
   },
 ]
 
-/** Inicio del panel: accesos según el rol. Las métricas con gráficos (recharts) llegan en la Fase 3. */
+/** Inicio del panel: las métricas según el rol y los accesos a cada pantalla. */
 export default function AdminHome() {
   const usuario = useAuthStore((s) => s.usuario)
 
@@ -64,6 +65,8 @@ export default function AdminHome() {
     <div className="flex flex-col gap-6 p-4 sm:p-8">
       <h1 className="text-2xl font-bold text-navy-900">Panel de administración</h1>
       <p className="text-navy-700">Bienvenido, {usuario?.nombre}.</p>
+      <DashboardPage />
+      <h2 className="text-lg font-bold text-navy-900">Accesos</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {ACCESOS.filter((a) => a.roles.some((r) => usuario?.roles.includes(r))).map((a) => (
           <Link key={a.to} to={a.to}>
