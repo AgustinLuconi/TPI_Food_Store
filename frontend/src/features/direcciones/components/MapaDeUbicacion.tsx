@@ -41,7 +41,12 @@ export function MapaDeUbicacion({ value, onChange }: Props) {
       alCambiar.current({ lat: redondear(e.latlng.lat), lng: redondear(e.latlng.lng) }),
     )
     mapa.current = m
+    // El mapa se crea dentro de un diálogo que todavía no está visible: Leaflet cree que su contenedor mide 0×0 y los
+    // clics se convertirían en coordenadas corridas. Se vuelve a medir cada vez que el contenedor cambia de tamaño.
+    const observador = new ResizeObserver(() => m.invalidateSize())
+    observador.observe(contenedor.current)
     return () => {
+      observador.disconnect()
       m.remove()
       mapa.current = null
       marcador.current = null
