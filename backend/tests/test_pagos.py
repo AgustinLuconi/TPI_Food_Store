@@ -89,11 +89,8 @@ def test_solo_se_paga_un_pedido_pendiente(tienda):
     assert estado(t.cliente, p["id"]) == "CANCELADO"
 
 
-def test_mercadopago_no_se_registra_a_mano(tienda, uow_factory):
+def test_mercadopago_no_se_registra_a_mano(tienda, mp_configurado):
     t = tienda
-    uow = uow_factory(PedidosUnitOfWork)
-    with uow:  # se habilita solo para este test (el seed la deja apagada hasta el Anexo B)
-        uow.formas_pago.update(uow.formas_pago.get_by_id("MERCADOPAGO"), {"habilitado": True})
     p = pedido_ok(t.cliente, [linea(t.pizza)], forma_pago_codigo="MERCADOPAGO")
     r = pagar(t.pedidos, p)
     assert r.status_code == 422 and r.json()["code"] == "PAYMENT_METHOD_NOT_MANUAL"
@@ -153,16 +150,12 @@ def test_el_pago_no_confirma_si_el_pedido_no_existe_ni_deja_registros_sueltos(ti
 
 def test_formas_de_pago_habilitadas(tienda, uow_factory):
     t = tienda
-    # el seed deja MercadoPago deshabilitada hasta el Anexo B
+    # sin credenciales de MercadoPago (ver test_mercadopago.py) solo se ofrecen efectivo y transferencia
     assert [f["codigo"] for f in t.cliente.get(f"{API}/pagos/formas").json()] == ["EFECTIVO", "TRANSFERENCIA"]
     assert t.cliente.get(f"{API}/pagos/formas").json()[0] == {"codigo": "EFECTIVO", "nombre": "Efectivo"}
     assert TestClient(t.cliente.app).get(f"{API}/pagos/formas").status_code == 401
 
     uow = uow_factory(PedidosUnitOfWork)
-    with uow:
-        uow.formas_pago.update(uow.formas_pago.get_by_id("MERCADOPAGO"), {"habilitado": True})
-    assert [f["codigo"] for f in t.cliente.get(f"{API}/pagos/formas").json()] == [
-        "EFECTIVO",
-        "MERCADOPAGO",
-        "TRANSFERENCIA",
-    ]
+    with uow:  # una forma deshabilitada en la base tampoco se ofrece
+        uow.formas_pago.update(uow.formas_pago.get_by_id("TRANSFERENCIA"), {"habilitado": False})
+    assert [f["codigo"] for f in t.cliente.get(f"{API}/pagos/formas").json()] == ["EFECTIVO"]

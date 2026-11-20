@@ -16,6 +16,7 @@ from app.modules.config import service as config
 from app.modules.config.schemas import CotizacionRequest
 from app.modules.direcciones.schemas import DireccionRead
 from app.modules.inventario import service as inventario
+from app.modules.pagos.formas import forma_ofrecida
 from app.modules.pagos.schemas import PagoRead
 from app.modules.pedidos.models import DetallePedido, HistorialEstadoPedido, Pedido
 from app.modules.pedidos.schemas import (
@@ -301,7 +302,7 @@ def crear_pedido(
         config.exigir_local_abierto(uow, ahora)  # RN-13
 
         forma = uow.formas_pago.get_by_id(datos.forma_pago_codigo)
-        if forma is None or not forma.habilitado:
+        if forma is None or not forma.habilitado or not forma_ofrecida(forma.codigo):
             raise ValidationError(
                 f"La forma de pago {datos.forma_pago_codigo} no está habilitada",
                 code="PAYMENT_METHOD_UNAVAILABLE",

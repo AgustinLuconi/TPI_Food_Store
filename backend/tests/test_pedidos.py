@@ -145,7 +145,7 @@ def test_rn13_con_el_local_cerrado_no_se_crean_pedidos(tienda, reloj):
 
 def test_forma_de_pago_habilitada(tienda):
     t = tienda
-    for codigo in ("MERCADOPAGO", "BITCOIN"):  # MercadoPago está deshabilitada en el seed
+    for codigo in ("MERCADOPAGO", "BITCOIN"):  # MercadoPago no se ofrece sin credenciales
         r = crear_pedido(t.cliente, [linea(t.pizza)], forma_pago_codigo=codigo)
         assert r.status_code == 422 and r.json()["code"] == "PAYMENT_METHOD_UNAVAILABLE", codigo
     assert crear_pedido(t.cliente, [linea(t.pizza)], forma_pago_codigo="transferencia").json()["forma_pago_codigo"] == (

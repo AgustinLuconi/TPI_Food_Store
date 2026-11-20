@@ -165,7 +165,7 @@ def test_el_seed_cargo_los_datos_obligatorios(session_factory):
             and estados["CANCELADO"] == (6, True)
         )
         formas = {r[0]: r[1] for r in uno("select codigo, habilitado from forma_pago")}
-        assert formas == {"EFECTIVO": True, "TRANSFERENCIA": True, "MERCADOPAGO": False}
+        assert formas == {"EFECTIVO": True, "TRANSFERENCIA": True, "MERCADOPAGO": True}
         assert uno("select zona_horaria from configuracion_local") == [("America/Argentina/Buenos_Aires",)]
 
 

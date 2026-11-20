@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from tests.helpers import API, login_admin, registrar_y_loguear
 from tests.test_catalogo import cliente_con_rol, ingrediente, producto
 from tests.test_inventario import en_dias, mover
@@ -134,3 +135,23 @@ def movimientos_de_pedido(admin: TestClient, producto_id: int, pedido_id: int) -
     items = admin.get(f"{API}/productos/{producto_id}/movimientos", params={"size": 100}).json()["items"]
     propios = [m for m in items if m["pedido_id"] == pedido_id]
     return [(m["tipo_movimiento"], m["lote_id"], Decimal(m["cantidad"])) for m in reversed(propios)]
+
+
+SECRETO = "secreto-de-prueba-del-webhook"
+PUBLICA = "TEST-clave-publica"
+
+
+@pytest.fixture
+def mp_configurado(monkeypatch):
+    """Credenciales de prueba en el entorno; get_settings() se cachea, por eso se limpia antes y después."""
+    for nombre, valor in {
+        "MP_ACCESS_TOKEN": "TEST-token",
+        "MP_PUBLIC_KEY": PUBLICA,
+        "MP_WEBHOOK_SECRET": SECRETO,
+        "MP_NOTIFICATION_URL": "https://ejemplo.test/api/v1/pagos/webhook",
+    }.items():
+        monkeypatch.setenv(nombre, valor)
+    get_settings.cache_clear()
+    yield
+    monkeypatch.undo()
+    get_settings.cache_clear()

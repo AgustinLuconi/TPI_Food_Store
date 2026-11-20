@@ -13,3 +13,6 @@ class PagoRepository(BaseRepository[Pago]):
 
     def get_by_idempotency_key(self, clave: str) -> Pago | None:
         return self.session.exec(select(Pago).where(Pago.idempotency_key == clave)).first()
+
+    def get_by_external_reference(self, referencia: str) -> Pago | None:
+        return self.session.exec(select(Pago).where(Pago.external_reference == referencia)).first()

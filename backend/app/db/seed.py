@@ -34,11 +34,11 @@ ESTADOS_PEDIDO = [
     ("CANCELADO", "Pedido cancelado", 6, True),
 ]
 
-# MERCADOPAGO queda deshabilitada hasta implementar el Anexo B.
+# MERCADOPAGO está habilitada (Anexo B); solo se ofrece si hay credenciales (ver MP_CONFIGURADO).
 FORMAS_PAGO = [
     ("EFECTIVO", "Efectivo", True),
     ("TRANSFERENCIA", "Transferencia", True),
-    ("MERCADOPAGO", "MercadoPago", False),
+    ("MERCADOPAGO", "MercadoPago", True),
 ]
 
 ADMIN_EMAIL = "admin@foodstore.com"
@@ -70,8 +70,11 @@ def _seed_catalogos(session: Session) -> None:
         if session.get(EstadoPedido, codigo) is None:
             session.add(EstadoPedido(codigo=codigo, descripcion=descripcion, orden=orden, es_terminal=terminal))
     for codigo, nombre, habilitado in FORMAS_PAGO:
-        if session.get(FormaPago, codigo) is None:
+        forma = session.get(FormaPago, codigo)
+        if forma is None:
             session.add(FormaPago(codigo=codigo, nombre=nombre, habilitado=habilitado))
+        elif codigo == "MERCADOPAGO" and not forma.habilitado:
+            forma.habilitado = True  # las bases anteriores al Anexo B la tenían deshabilitada
     session.flush()
 
 

@@ -69,6 +69,20 @@ class TooManyRequestsError(DomainError):
         self.headers = {"Retry-After": str(max(1, retry_after))}
 
 
+class BadGatewayError(DomainError):
+    """502: un servicio externo (la pasarela de pagos) falló o no respondió."""
+
+    status_code = 502
+    default_code = "BAD_GATEWAY"
+
+
+class ServiceUnavailableError(DomainError):
+    """503: la función existe pero no está configurada en este despliegue."""
+
+    status_code = 503
+    default_code = "SERVICE_UNAVAILABLE"
+
+
 def _body(detail: str, code: str, field: str | None = None) -> dict[str, str]:
     body = {"detail": detail, "code": code}
     if field:

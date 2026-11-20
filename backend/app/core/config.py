@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     LOGIN_MAX_FAILED_ATTEMPTS: int = 5
     LOGIN_WINDOW_MINUTES: int = 15
 
+    # MercadoPago (Anexo B, opcional). Sin MP_ACCESS_TOKEN la forma de pago no se ofrece y el resto funciona igual.
+    MP_ACCESS_TOKEN: str = ""
+    MP_PUBLIC_KEY: str = ""
+    # URL pública del webhook: https://<dominio>/api/v1/pagos/webhook
+    MP_NOTIFICATION_URL: str = ""
+    MP_WEBHOOK_SECRET: str = ""
+
     @field_validator("DATABASE_URL")
     @classmethod
     def usar_driver_psycopg(cls, value: str) -> str:
@@ -33,6 +40,11 @@ class Settings(BaseSettings):
         if value.startswith("postgresql://"):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
+
+    @property
+    def MP_CONFIGURADO(self) -> bool:
+        """MercadoPago se ofrece solo si están el token del backend y la clave pública del frontend."""
+        return bool(self.MP_ACCESS_TOKEN and self.MP_PUBLIC_KEY)
 
     @property
     def COOKIE_SECURE(self) -> bool:

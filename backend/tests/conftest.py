@@ -132,4 +132,4 @@ def uow_factory(session_factory) -> Callable[[type[UnitOfWork]], UnitOfWork]:
 
 
 # Escenario de pedidos y pagos (fixtures `tienda` y `reloj`): vive en un módulo aparte para no inflar este archivo.
-from tests.pedidos_helpers import reloj, tienda  # noqa: E402, F401
+from tests.pedidos_helpers import mp_configurado, reloj, tienda  # noqa: E402, F401

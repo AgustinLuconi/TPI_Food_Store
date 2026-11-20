@@ -32,6 +32,11 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost"]}'
       MEDIA_DIR: /app/media
+      # MercadoPago (Anexo B): opcionales; vacías, la forma de pago no se ofrece.
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_PUBLIC_KEY: ${MP_PUBLIC_KEY:-}
+      MP_NOTIFICATION_URL: ${MP_NOTIFICATION_URL:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
     volumes:
       - media:/app/media
     depends_on:
