@@ -7,8 +7,8 @@ Sistema de gestión de pedidos de comida (TPI · Programación 3 y Arquitectura 
 > la Fase 2, ahora hay métricas (`/admin/metrics`), la tienda del cliente (catálogo con filtros, carrito
 > persistente, direcciones con mapa, checkout con `Idempotency-Key` y seguimiento), la gestión de pedidos y
 > pagos del personal, el panel de métricas con gráficos y el despliegue con Docker Compose + Nginx.
-> MercadoPago (Anexo B) está implementado y probado con una pasarela simulada; faltan su prueba con credenciales
-> reales y el despliegue en la nube con HTTPS (requieren credenciales y un servidor propio). Ver `docs/` para el ERD.
+> MercadoPago (Anexo B) está implementado y verificado contra MercadoPago con credenciales de prueba (cobro, rechazo,
+> reintento, pago pendiente y webhook real). El despliegue en la nube no se realiza. Ver `docs/` para el ERD.
 
 ## Requisitos
 
@@ -143,7 +143,9 @@ ofrece** y el sistema funciona igual con efectivo y transferencia.
 2. Completar en `backend/.env` (o en el `.env` raíz si se usa Docker): `MP_ACCESS_TOKEN` (privada),
    `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (`https://<dominio>/api/v1/pagos/webhook`) y `MP_WEBHOOK_SECRET`.
 3. En el panel de MercadoPago, registrar esa URL como webhook del evento *Pagos* y copiar la clave secreta.
-   MercadoPago no puede llamar a `localhost`: hace falta un dominio público o un túnel (ngrok, cloudflared).
+   MercadoPago no puede llamar a `localhost`: para probar el webhook en tu máquina hay que abrir un túnel (por ejemplo
+   `cloudflared tunnel --url http://localhost:8000`) y usar su dirección `https://…` en `MP_NOTIFICATION_URL`. Esa
+   dirección cambia cada vez que se reinicia el túnel gratuito. Sin webhook, el cobro con tarjeta igual funciona.
 
 | Endpoint | Qué hace |
 | --- | --- |
@@ -288,11 +290,8 @@ nginx/                   configuración del proxy inverso
 
 ## Pendiente (bonus)
 
-- **Webhook real de MercadoPago:** el cobro con tarjeta ya se probó contra MercadoPago con credenciales de prueba
-  (ver abajo), pero la llegada de un aviso real y la coincidencia exacta del formato de su firma `x-signature` solo se
-  pueden comprobar con una URL pública (túnel o dominio), que se registra en el panel de MercadoPago. Hasta entonces
-  la firma está probada con avisos firmados localmente según la documentación.
-- **Despliegue en la nube** con HTTPS y `COOKIE_SECURE`: necesita un servidor (VM) y un dominio.
+- **Despliegue en la nube** con HTTPS y `COOKIE_SECURE`: no se hará; el sistema se entrega para correr localmente
+  (con o sin Docker). Con `ENVIRONMENT=production` las cookies pasan a `Secure` si se desplegara tras HTTPS.
 
 ### Verificado contra MercadoPago (credenciales de prueba, navegador real)
 
@@ -302,7 +301,9 @@ nginx/                   configuración del proxy inverso
 | CE-B3 pago rechazado | `OTHE` | `rejected / cc_rejected_other_reason`: el pedido sigue PENDIENTE y se explica el motivo. |
 | Reintento tras el rechazo | `APRO` | Se actualiza el mismo registro de pago (uno por pedido) y el pedido se confirma. |
 | Pago pendiente | `CONT` | `in_process / pending_contingency`: el pedido queda PENDIENTE y la pantalla avisa que se está procesando. |
-| Webhook (consulta real y firma local) | pago real | El pago se consulta en MercadoPago; el aviso repetido responde 200 sin cambios; una firma ajena, 401. |
+| Webhook real (túnel cloudflared) | `CONT` | Llegó el aviso firmado de MercadoPago y se aceptó (la firma `x-signature` real coincide con la implementada); al cancelar el pago desde la API, el aviso actualizó `mp_status` a `cancelled` y el pedido siguió PENDIENTE. |
+| Webhook sobre un pedido ya confirmado | `APRO` | El aviso real respondió 200 sin efectos: el historial no se duplicó. |
+| Firma ajena | — | 401 `INVALID_SIGNATURE`; un pago que MercadoPago no conoce se ignora con 200. |
 
 Nota: la API de pagos (`Payments`) que usa la integración figura en la documentación de MercadoPago como *legacy*
 (sigue funcionando, sin funciones nuevas); la sustituta es la API *Orders*. Se mantiene Payments porque es la que
