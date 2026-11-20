@@ -7,8 +7,8 @@ Sistema de gestión de pedidos de comida (TPI · Programación 3 y Arquitectura 
 > la Fase 2, ahora hay métricas (`/admin/metrics`), la tienda del cliente (catálogo con filtros, carrito
 > persistente, direcciones con mapa, checkout con `Idempotency-Key` y seguimiento), la gestión de pedidos y
 > pagos del personal, el panel de métricas con gráficos y el despliegue con Docker Compose + Nginx.
-> Pendientes (requieren credenciales o un servidor propio): MercadoPago (Anexo B) y despliegue en la nube con
-> HTTPS. Ver `docs/` para el ERD.
+> MercadoPago (Anexo B) está implementado y probado con una pasarela simulada; faltan su prueba con credenciales
+> reales y el despliegue en la nube con HTTPS (requieren credenciales y un servidor propio). Ver `docs/` para el ERD.
 
 ## Requisitos
 
@@ -134,19 +134,45 @@ Para cargar los datos de demostración en el despliegue:
 pasan a `Secure` (solo HTTPS); en `localhost` dejar `development`. Apagar con `docker compose stop`
 (conserva los datos) o `docker compose down -v` (los borra).
 
+## MercadoPago (Anexo B, opcional)
+
+Cobro con tarjeta (Checkout API) y confirmación automática por webhook. **Sin credenciales la forma de pago no se
+ofrece** y el sistema funciona igual con efectivo y transferencia.
+
+1. Crear una aplicación en <https://www.mercadopago.com.ar/developers> y copiar sus **credenciales de prueba**.
+2. Completar en `backend/.env` (o en el `.env` raíz si se usa Docker): `MP_ACCESS_TOKEN` (privada),
+   `MP_PUBLIC_KEY`, `MP_NOTIFICATION_URL` (`https://<dominio>/api/v1/pagos/webhook`) y `MP_WEBHOOK_SECRET`.
+3. En el panel de MercadoPago, registrar esa URL como webhook del evento *Pagos* y copiar la clave secreta.
+   MercadoPago no puede llamar a `localhost`: hace falta un dominio público o un túnel (ngrok, cloudflared).
+
+| Endpoint | Qué hace |
+| --- | --- |
+| `GET /pagos/mercadopago/config` | Devuelve solo la clave pública, que el SDK del navegador necesita para tokenizar. |
+| `POST /pagos/mercadopago` | Cliente dueño del pedido PENDIENTE. Recibe el token de la tarjeta; **el monto lo fija el servidor** con el total del pedido. |
+| `POST /pagos/webhook` | Público, pero exige firma HMAC-SHA256 válida (`x-signature`). Consulta el pago en MercadoPago y confirma el pedido. |
+
+Los datos de la tarjeta los tokeniza el navegador con MercadoPago y **nunca pasan por el backend**. El flujo, según
+el estado que devuelve MercadoPago: `approved` confirma el pedido en la misma transacción; `pending` o `in_process`
+lo dejan PENDIENTE hasta el webhook; `rejected` muestra el motivo y permite reintentar con otra tarjeta. Hay un solo
+`Pago` por pedido: un reintento lo actualiza con una `idempotency_key` nueva generada en el backend. El webhook es
+idempotente (un aviso repetido no cambia nada) y ignora los avisos de un intento anterior ya reemplazado.
+
+Tarjetas de prueba (el resultado lo decide el **nombre del titular**): `APRO` aprueba, `CONT` queda pendiente,
+`OTHE` rechaza, `FUND` por fondos insuficientes, `SECU` por código inválido; Visa `4509 9535 6623 3704`, CVV `123`.
+
 ## Tests y verificaciones
 
 ```bash
 # Backend (requiere la base levantada): crea sola la base de prueba `foodstore_test`, aplica las migraciones y siembra los datos.
 cd backend
-pytest                               # 233 tests (incluye 4 de concurrencia con hilos)
+pytest                               # 265 tests (incluye 4 de concurrencia con hilos)
 pytest --cov=app                     # cobertura (98 %)
 ruff check . && ruff format --check .
 alembic check                        # modelos y migraciones no divergen
 
 # Frontend
 cd frontend
-npm run lint && npm run build && npm test      # 47 tests
+npm run lint && npm run build && npm test      # 54 tests
 ```
 
 Los tests del backend corren cada caso dentro de una transacción que se revierte, contra PostgreSQL
@@ -242,6 +268,10 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | Mapa de direcciones | Leaflet con teselas de OpenStreetMap (sin clave de API). |
 | Portada | La raíz `/` es directamente el catálogo; no hay página de inicio aparte. |
 | Contraste del botón primario | Ver la nota de accesibilidad en "Tests y verificaciones". |
+| MercadoPago sin credenciales | La forma de pago no se ofrece (`GET /pagos/formas` la omite y crear un pedido con ella responde 422) y los endpoints de cobro responden 503 `MP_NOT_CONFIGURED`. El seed la deja `habilitado = true` (como pide el Anexo B). |
+| Pago de MercadoPago en curso | Con un pago `pending` o `in_process` no se acepta otro cobro (409 `PAYMENT_IN_PROGRESS`): evita cobrar dos veces mientras se espera al webhook. |
+| Pago aprobado de un pedido cancelado | El webhook registra el estado pero no revive el pedido; el reembolso queda como tarea manual (fuera de alcance, igual que en la Fase 2). |
+| `GET /pagos/mercadopago/config` (agregado) | La spec dice "clave pública para el SDK del frontend" sin definir cómo llega; se sirve desde el backend para no recompilar la SPA al cambiar de credenciales. |
 | Consultas al profesor | Mientras no haya respuesta se aplican las propuestas del plan de trabajo (zonas con `activo`, unidad de medida fijada por la primera receta, lotes antes que stock sin lote, pagos por estado dentro de `/admin/metrics/resumen`). |
 
 ## Estructura
@@ -258,5 +288,7 @@ nginx/                   configuración del proxy inverso
 
 ## Pendiente (bonus)
 
-- **MercadoPago (Anexo B):** Checkout Pro con webhook; necesita credenciales de prueba y una URL pública.
+- **Prueba de punta a punta con credenciales reales de MercadoPago** (CE-B2 y CE-B3 contra el entorno de prueba, con el
+  webhook recibiendo avisos reales): el código y los tests con una pasarela simulada están hechos; falta ejecutarlo con
+  las credenciales y la URL pública.
 - **Despliegue en la nube** con HTTPS y `COOKIE_SECURE`: necesita un servidor (VM) y un dominio.
