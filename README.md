@@ -288,7 +288,22 @@ nginx/                   configuración del proxy inverso
 
 ## Pendiente (bonus)
 
-- **Prueba de punta a punta con credenciales reales de MercadoPago** (CE-B2 y CE-B3 contra el entorno de prueba, con el
-  webhook recibiendo avisos reales): el código y los tests con una pasarela simulada están hechos; falta ejecutarlo con
-  las credenciales y la URL pública.
+- **Webhook real de MercadoPago:** el cobro con tarjeta ya se probó contra MercadoPago con credenciales de prueba
+  (ver abajo), pero la llegada de un aviso real y la coincidencia exacta del formato de su firma `x-signature` solo se
+  pueden comprobar con una URL pública (túnel o dominio), que se registra en el panel de MercadoPago. Hasta entonces
+  la firma está probada con avisos firmados localmente según la documentación.
 - **Despliegue en la nube** con HTTPS y `COOKIE_SECURE`: necesita un servidor (VM) y un dominio.
+
+### Verificado contra MercadoPago (credenciales de prueba, navegador real)
+
+| Caso | Titular | Resultado |
+| --- | --- | --- |
+| CE-B2 pago aprobado | `APRO` | `approved / accredited`: el pedido pasa a CONFIRMADO y la pantalla lo muestra. |
+| CE-B3 pago rechazado | `OTHE` | `rejected / cc_rejected_other_reason`: el pedido sigue PENDIENTE y se explica el motivo. |
+| Reintento tras el rechazo | `APRO` | Se actualiza el mismo registro de pago (uno por pedido) y el pedido se confirma. |
+| Pago pendiente | `CONT` | `in_process / pending_contingency`: el pedido queda PENDIENTE y la pantalla avisa que se está procesando. |
+| Webhook (consulta real y firma local) | pago real | El pago se consulta en MercadoPago; el aviso repetido responde 200 sin cambios; una firma ajena, 401. |
+
+Nota: la API de pagos (`Payments`) que usa la integración figura en la documentación de MercadoPago como *legacy*
+(sigue funcionando, sin funciones nuevas); la sustituta es la API *Orders*. Se mantiene Payments porque es la que
+describe el Anexo B. Migrar a Orders implicaría cambiar el cobro, las notificaciones y los tests.
