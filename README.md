@@ -3,11 +3,12 @@
 Sistema de gestión de pedidos de comida (TPI · Programación 3 y Arquitectura y Diseño de Interfaces).
 **Stack:** React 19 + TypeScript + Tailwind 4 + TanStack Query + Zustand + Axios · FastAPI + SQLModel + Alembic · PostgreSQL 16.
 
-> **Estado: Fase 2 (Negocio) completa.** Sobre los cimientos de la Fase 1, el backend suma catálogo con
-> recetas e imágenes, inventario con doble ledger y FEFO, producción, configuración del local con zonas de
-> cobertura, pedidos con máquina de estados y pagos idempotentes; el frontend suma las pantallas del
-> personal (productos, ingredientes, inventario, producción y configuración). La Fase 3 (tienda del
-> cliente, panel de métricas, Docker, despliegue y MercadoPago) está pendiente. Ver `docs/` para el ERD.
+> **Estado: Fase 3 (Tienda, panel y despliegue) completa; quedan solo los bonus.** Además del backend de
+> la Fase 2, ahora hay métricas (`/admin/metrics`), la tienda del cliente (catálogo con filtros, carrito
+> persistente, direcciones con mapa, checkout con `Idempotency-Key` y seguimiento), la gestión de pedidos y
+> pagos del personal, el panel de métricas con gráficos y el despliegue con Docker Compose + Nginx.
+> Pendientes (requieren credenciales o un servidor propio): MercadoPago (Anexo B) y despliegue en la nube con
+> HTTPS. Ver `docs/` para el ERD.
 
 ## Requisitos
 
@@ -106,25 +107,58 @@ Los usuarios `cliente@`, `stock@` y `pedidos@foodstore.com` usan la misma clave 
 | El frontend carga pero el login da error de red | El backend no está corriendo, o `VITE_API_URL` no apunta a él. |
 | Querés empezar de cero con la base | `docker compose -f docker-compose.dev.yml down -v` borra el volumen; después repetir `alembic upgrade head` y el seed. |
 
+## Despliegue con Docker Compose
+
+Levanta todo el sistema (4 servicios) con un solo comando. **Solo Nginx publica un puerto**; la base y la API
+quedan en la red interna.
+
+```bash
+cp .env.example .env          # y completar/ajustar: POSTGRES_PASSWORD, SECRET_KEY (mín. 32 caracteres), etc.
+docker compose up -d --build
+# Aplicación: http://localhost · Documentación de la API: http://localhost/docs
+```
+
+| Servicio | Imagen | Función |
+| --- | --- | --- |
+| `db` | `postgres:16-alpine` | Base de datos (volumen `pgdata`). |
+| `backend` | `python:3.11-slim` | Al arrancar aplica las migraciones y el seed (idempotente) y sirve la API con `--proxy-headers`. |
+| `frontend` | `node:22-alpine` (multistage) | Compila la SPA con `VITE_API_URL=/api/v1`, la copia a un volumen y termina. |
+| `nginx` | `nginx:1.28-alpine` | Sirve la SPA, las imágenes (`/media/`) y enruta `/api/v1/`, `/docs` y `/openapi.json` al backend. |
+
+Detalles de Nginx que importan: `client_max_body_size 5m` (las imágenes llegan a 2 MB), `/openapi.json`
+enrutado (si no, `/docs` queda en blanco) y `X-Forwarded-For` **sobrescrito** con la IP real, para que el
+límite de intentos de login no se pueda esquivar falseando la cabecera.
+
+Para cargar los datos de demostración en el despliegue:
+`docker compose exec backend python -m app.db.demo`. Con `ENVIRONMENT=production` las cookies de sesión
+pasan a `Secure` (solo HTTPS); en `localhost` dejar `development`. Apagar con `docker compose stop`
+(conserva los datos) o `docker compose down -v` (los borra).
+
 ## Tests y verificaciones
 
 ```bash
 # Backend (requiere la base levantada): crea sola la base de prueba `foodstore_test`, aplica las migraciones y siembra los datos.
 cd backend
-pytest                               # 216 tests
+pytest                               # 233 tests (incluye 4 de concurrencia con hilos)
 pytest --cov=app                     # cobertura (98 %)
 ruff check . && ruff format --check .
 alembic check                        # modelos y migraciones no divergen
 
 # Frontend
 cd frontend
-npm run lint && npm run build && npm test      # 31 tests
+npm run lint && npm run build && npm test      # 47 tests
 ```
 
 Los tests del backend corren cada caso dentro de una transacción que se revierte, contra PostgreSQL
 real, con el Unit of Work inyectado mediante `dependency_overrides`. `tests/test_erd.py` lee
 `docs/food_store_erd.puml` y lo compara con la base migrada (columnas, tipos, NOT NULL, DEFAULT, PK,
 UNIQUE, FK con su `ON DELETE` y ENUM), así el ERD y las migraciones no pueden divergir (CE-09).
+
+Además se verificó en un navegador real (Playwright + Chrome) el recorrido completo del cliente, del
+personal y de las pantallas de las fases anteriores, y se auditó la accesibilidad con axe-core (WCAG 2.1 A
+y AA) sobre unas 25 pantallas. Queda una excepción conocida: el texto blanco sobre el naranja `accent-600`
+(botón primario) da 3,55:1 de contraste (AA pide 4,5:1); se mantiene porque ese color lo fija la
+sección 11.4 de la especificación.
 
 ## Arquitectura
 
@@ -201,6 +235,13 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | Ajeno es 404 | Un pedido, un pago o una dirección de otra persona responde 404 y no revela que existe. |
 | Cancelar un pedido pagado | Libera el stock pero no hay reembolso automático (fuera del alcance de la Fase 2). |
 | Pagos | El monto debe coincidir con el total; se registra con la forma de pago del pedido y MercadoPago queda deshabilitada hasta el Anexo B. Un segundo pago distinto es 409. |
+| Métricas (adición) | `/admin/metrics`: `resumen`, `ventas`, `top-productos` (ADMIN) y `stock-bajo`, `mermas` (ADMIN y STOCK). Una **venta** es un pedido con pago aprobado que no está CANCELADO; los días se miden en la zona horaria del local y los rangos admiten hasta 366 días (422 `INVALID_RANGE` / `RANGE_TOO_LARGE`). |
+| `GET /pagos/formas` (agregado) | Lista las formas de pago habilitadas para el checkout (cualquier usuario autenticado). |
+| Filtros en la URL | Los listados de pedidos del personal guardan estado, fechas y página en la URL: se pueden compartir y sobreviven a recargar. |
+| Carrito | Persistente en el navegador; al abrirlo se revalidan precios y disponibilidad contra el servidor (casos de la sección 11.2) y el checkout manda una sola `Idempotency-Key` por intento. |
+| Mapa de direcciones | Leaflet con teselas de OpenStreetMap (sin clave de API). |
+| Portada | La raíz `/` es directamente el catálogo; no hay página de inicio aparte. |
+| Contraste del botón primario | Ver la nota de accesibilidad en "Tests y verificaciones". |
 | Consultas al profesor | Mientras no haya respuesta se aplican las propuestas del plan de trabajo (zonas con `activo`, unidad de medida fijada por la primera receta, lotes antes que stock sin lote, pagos por estado dentro de `/admin/metrics/resumen`). |
 
 ## Estructura
@@ -209,11 +250,13 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 backend/    API FastAPI (app/core, app/modules/*, app/db con seed y demo, alembic, tests)
 frontend/   SPA React (src/shared, src/features, src/store, src/routes, src/pages)
 docs/       food_store_erd.puml y food_store_erd.svg
-docker-compose.dev.yml   base de datos de desarrollo
+docker-compose.yml       despliegue completo (db + backend + frontend + nginx)
+docker-compose.dev.yml   solo la base de datos, para desarrollar
+nginx/                   configuración del proxy inverso
+.env.example             variables del despliegue con Docker
 ```
 
-## Pendiente (Fase 3)
+## Pendiente (bonus)
 
-Tienda del cliente (catálogo público, carrito y checkout con `Idempotency-Key`, seguimiento de pedidos),
-gestión de pedidos y pagos para el personal, panel de métricas con recharts, Docker + Nginx, despliegue en
-la nube y MercadoPago (Anexo B).
+- **MercadoPago (Anexo B):** Checkout Pro con webhook; necesita credenciales de prueba y una URL pública.
+- **Despliegue en la nube** con HTTPS y `COOKIE_SECURE`: necesita un servidor (VM) y un dominio.
