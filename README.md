@@ -157,7 +157,7 @@ UNIQUE, FK con su `ON DELETE` y ENUM), así el ERD y las migraciones no pueden d
 Además se verificó en un navegador real (Playwright + Chrome) el recorrido completo del cliente, del
 personal y de las pantallas de las fases anteriores, y se auditó la accesibilidad con axe-core (WCAG 2.1 A
 y AA) sobre unas 25 pantallas. Queda una excepción conocida: el texto blanco sobre el naranja `accent-600`
-(botón primario) da 3,55:1 de contraste (AA pide 4,5:1); se mantiene porque ese color lo fija la
+(botón primario) da 3,56:1 de contraste (AA pide 4,5:1); se mantiene porque ese color lo fija la
 sección 11.4 de la especificación.
 
 ## Arquitectura
