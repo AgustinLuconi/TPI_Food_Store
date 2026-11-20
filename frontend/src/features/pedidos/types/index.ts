@@ -45,6 +45,7 @@ export interface PagoDelPedido {
   forma_pago_codigo: string
   monto: string
   mp_status: string
+  mp_status_detail?: string | null
   created_at: string
 }
 
@@ -98,4 +99,16 @@ export interface FiltrosPedidos {
   estado: EstadoPedido | ''
   page: number
   size: number
+}
+
+/** Lo que manda CardPayment al confirmar; el monto no viaja: el servidor usa el total del pedido. */
+export interface PagoConTarjeta {
+  pedido_id: number
+  token: string
+  payment_method_id: string
+  installments: number
+  issuer_id?: string
+  email: string
+  identification_type?: string
+  identification_number?: string
 }

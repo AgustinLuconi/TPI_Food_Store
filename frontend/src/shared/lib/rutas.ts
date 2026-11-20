@@ -10,6 +10,7 @@ export const RUTAS = {
   pedidos: '/pedidos',
   producto: (id: number | string) => `/producto/${id}`,
   pedido: (id: number | string) => `/pedidos/${id}`,
+  pagarPedido: (id: number | string) => `/pedidos/${id}/pagar`,
   admin: '/admin',
   adminCategorias: '/admin/categorias',
   adminUsuarios: '/admin/usuarios',

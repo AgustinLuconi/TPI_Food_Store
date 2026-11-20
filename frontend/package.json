@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@mercadopago/sdk-react": "^1.1.0",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.0.0",
     "leaflet": "^1.9.4",

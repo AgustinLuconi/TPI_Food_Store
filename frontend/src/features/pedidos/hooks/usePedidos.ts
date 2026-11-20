@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pedidosApi } from '../api/pedidosApi'
 import { esTerminal } from '../lib/estados'
-import type { EstadoPedido, FiltrosPedidos, PedidoNuevo } from '../types'
+import type { EstadoPedido, FiltrosPedidos, PagoConTarjeta, PedidoNuevo } from '../types'
 
 export const pedidosKeys = { all: ['pedidos'] as const }
 
@@ -90,6 +90,23 @@ export function useCambiarEstado() {
   return useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: EstadoPedido }) =>
       pedidosApi.changeState(id, estado),
+    onSuccess: invalidar,
+  })
+}
+
+export function useConfigMercadoPago() {
+  return useQuery({
+    queryKey: ['pagos', 'mercadopago', 'config'],
+    queryFn: pedidosApi.mercadoPagoConfig,
+    staleTime: Infinity,
+    retry: false,
+  })
+}
+
+export function usePagarConTarjeta() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: (body: PagoConTarjeta) => pedidosApi.payWithCard(body),
     onSuccess: invalidar,
   })
 }

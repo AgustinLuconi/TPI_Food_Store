@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { useValidacionDelCarrito } from '@/features/carrito/hooks/useValidacionDelCarrito'
 import { SelectorDeDireccion } from '@/features/direcciones/components/SelectorDeDireccion'
 import type { Direccion } from '@/features/direcciones/types'
@@ -34,6 +34,7 @@ type Entrega = 'retiro' | 'envio'
  */
 export default function CheckoutPage() {
   const lines = useCartStore((s) => s.lines)
+  const navigate = useNavigate()
   const clearCart = useCartStore((s) => s.clear)
   const updatePrices = useCartStore((s) => s.updatePrices)
   const paso = usePaymentStore((s) => s.paso)
@@ -139,6 +140,11 @@ export default function CheckoutPage() {
         onSuccess: (pedido) => {
           clearCart()
           resetCheckout()
+          // Con tarjeta el pedido se paga ahora (Anexo B): se sigue a la pantalla de cobro.
+          if (pedido.forma_pago_codigo === 'MERCADOPAGO') {
+            navigate(RUTAS.pagarPedido(pedido.id), { replace: true })
+            return
+          }
           exito({
             titulo: 'Pedido creado',
             mensaje: `Tu pedido #${pedido.id} quedó registrado. El local lo confirma cuando recibe el pago; podés seguirlo desde «Mis pedidos».`,

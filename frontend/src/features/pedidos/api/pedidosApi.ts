@@ -7,6 +7,8 @@ import type {
   FormaDePago,
   Pedido,
   PedidoItem,
+  PagoConTarjeta,
+  PagoDelPedido,
   PedidoNuevo,
 } from '../types'
 
@@ -66,4 +68,12 @@ export const pedidosApi = {
     api
       .post(`/pagos/${pedidoId}`, { monto }, { headers: { 'Idempotency-Key': idempotencyKey } })
       .then((r) => r.data),
+
+  /** Clave pública de MercadoPago (503 si el servidor no tiene credenciales). */
+  mercadoPagoConfig: () =>
+    api.get<{ public_key: string }>('/pagos/mercadopago/config').then((r) => r.data),
+
+  /** Cobra con la tarjeta ya tokenizada por el SDK: los datos de la tarjeta nunca pasan por nuestro servidor. */
+  payWithCard: (body: PagoConTarjeta) =>
+    api.post<PagoDelPedido>('/pagos/mercadopago', body).then((r) => r.data),
 }

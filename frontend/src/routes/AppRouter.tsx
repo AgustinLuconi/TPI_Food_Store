@@ -13,6 +13,7 @@ const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const DireccionesPage = lazy(() => import('@/features/direcciones/pages/DireccionesPage'))
 const MisPedidosPage = lazy(() => import('@/features/pedidos/pages/MisPedidosPage'))
 const PedidoDetallePage = lazy(() => import('@/features/pedidos/pages/PedidoDetallePage'))
+const PagarPedidoPage = lazy(() => import('@/features/pedidos/pages/PagarPedidoPage'))
 const CatalogoPage = lazy(() => import('@/features/catalogo/pages/CatalogoPage'))
 const ProductoDetallePage = lazy(() => import('@/features/catalogo/pages/ProductoDetallePage'))
 const AdminHome = lazy(() => import('@/pages/AdminHome'))
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
                   { path: RUTAS.direcciones, element: <DireccionesPage /> },
                   { path: RUTAS.pedidos, element: <MisPedidosPage /> },
                   { path: '/pedidos/:id', element: <PedidoDetallePage /> },
+                  { path: '/pedidos/:id/pagar', element: <PagarPedidoPage /> },
                 ],
               },
             ],

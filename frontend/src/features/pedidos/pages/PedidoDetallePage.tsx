@@ -10,6 +10,7 @@ import { CancelarPedidoModal } from '../components/CancelarPedidoModal'
 import { DetalleDelPedido } from '../components/DetalleDelPedido'
 import { usePedido } from '../hooks/usePedidos'
 import { puedeCancelar } from '../lib/estados'
+import { situacionDelPago } from '../lib/mercadopago'
 
 /** Seguimiento del pedido: se actualiza solo mientras no esté entregado ni cancelado. */
 export default function PedidoDetallePage() {
@@ -40,6 +41,10 @@ export default function PedidoDetallePage() {
     )
   }
 
+  const pagoEnProceso = situacionDelPago(data.pago?.mp_status) === 'en_proceso'
+  const puedePagarConTarjeta =
+    data.forma_pago_codigo === 'MERCADOPAGO' && data.estado_codigo === 'PENDIENTE' && !pagoEnProceso
+
   return (
     <div className="flex flex-col gap-4">
       <nav aria-label="Ruta de navegación">
@@ -50,11 +55,26 @@ export default function PedidoDetallePage() {
       <DetalleDelPedido
         pedido={data}
         acciones={
-          puedeCancelar(data.estado_codigo, false) && (
-            <Button variant="danger" onClick={() => setCancelando(true)}>
-              Cancelar pedido
-            </Button>
-          )
+          <>
+            {puedePagarConTarjeta && (
+              <Link
+                to={RUTAS.pagarPedido(data.id)}
+                className="inline-flex items-center rounded-lg bg-accent-600 px-4 py-2 text-sm font-bold text-white hover:bg-accent-700"
+              >
+                Pagar con tarjeta
+              </Link>
+            )}
+            {pagoEnProceso && (
+              <p role="status" className="text-sm font-semibold text-amber-800">
+                Tu pago está en proceso: MercadoPago todavía no lo confirmó.
+              </p>
+            )}
+            {puedeCancelar(data.estado_codigo, false) && (
+              <Button variant="danger" onClick={() => setCancelando(true)}>
+                Cancelar pedido
+              </Button>
+            )}
+          </>
         }
       />
       {cancelando && (
