@@ -84,7 +84,7 @@ export default function CatalogoPage() {
         <>
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {data.items.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="h-full">
                 <ProductoCard producto={p} />
               </li>
             ))}

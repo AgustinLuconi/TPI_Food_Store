@@ -24,7 +24,7 @@ export function ProductoCard({ producto }: { producto: ProductoItem }) {
   }
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-xl border border-surface-border bg-white shadow-sm">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-white shadow-sm">
       <Link
         to={RUTAS.producto(producto.id)}
         className="block"
