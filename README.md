@@ -159,6 +159,45 @@ lo dejan PENDIENTE hasta el webhook; `rejected` muestra el motivo y permite rein
 `Pago` por pedido: un reintento lo actualiza con una `idempotency_key` nueva generada en el backend. El webhook es
 idempotente (un aviso repetido no cambia nada) y ignora los avisos de un intento anterior ya reemplazado.
 
+#### Probar el webhook en tu máquina (túnel)
+
+El cobro con tarjeta funciona sin túnel. Solo hace falta para ver llegar **avisos reales** de MercadoPago (por ejemplo,
+la confirmación automática de un pago que quedó pendiente). Como MercadoPago no puede llamar a `localhost`, se abre un
+túnel que le da a tu máquina una dirección pública **temporal**: cambia cada vez que se abre y solo funciona mientras
+el túnel, el backend y la computadora estén encendidos.
+
+**Una sola vez**, descargar `cloudflared` (no requiere cuenta ni instalación):
+
+```bash
+mkdir -p ~/herramientas && cd ~/herramientas
+curl -L -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x cloudflared
+```
+
+**Cada vez que se quiera probar:**
+
+1. Levantar la base, el backend y el frontend como siempre.
+2. En otra terminal, abrir el túnel y dejarla abierta:
+   ```bash
+   ~/herramientas/cloudflared tunnel --url http://localhost:8000
+   ```
+   Tras unos segundos imprime una dirección `https://<algo>.trycloudflare.com`. Copiarla. (Con Docker, apuntar al
+   puerto de Nginx: `--url http://localhost:80`.)
+3. En `backend/.env` (o en el `.env` de la raíz con Docker) poner esa dirección más la ruta del webhook:
+   ```
+   MP_NOTIFICATION_URL=https://<algo>.trycloudflare.com/api/v1/pagos/webhook
+   ```
+4. **Reiniciar el backend** (`Ctrl+C` y volver a lanzar `uvicorn`; el modo `--reload` no recarga al cambiar el `.env`).
+   Con Docker: `docker compose up -d backend`.
+5. Pagar en la app con una tarjeta de prueba. Con el titular `CONT` el pago queda pendiente.
+6. En la terminal del backend debe aparecer una línea `POST /api/v1/pagos/webhook?... 200 OK`: es el aviso real.
+   Un `401` significa que `MP_WEBHOOK_SECRET` no coincide con la clave secreta del panel de MercadoPago.
+7. Al terminar, cerrar el túnel con `Ctrl+C`. La próxima vez, repetir desde el paso 2 con la dirección nueva.
+
+`MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` y `MP_WEBHOOK_SECRET` no cambian entre una sesión y otra. Si no llega ningún aviso,
+registrar también la dirección nueva en el panel de MercadoPago (Webhooks, evento *Pagos*). Mientras el túnel está
+abierto, toda la API local es accesible desde internet: cerrarlo al terminar.
+
 Tarjetas de prueba (el resultado lo decide el **nombre del titular**): `APRO` aprueba, `CONT` queda pendiente,
 `OTHE` rechaza, `FUND` por fondos insuficientes, `SECU` por código inválido; Visa `4509 9535 6623 3704`, CVV `123`.
 
