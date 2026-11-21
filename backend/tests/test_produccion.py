@@ -18,7 +18,7 @@ def pizzeria(client: TestClient) -> dict[str, int]:
     ids = {
         "harina": ingrediente(client, "Harina")["id"],
         "queso": ingrediente(client, "Queso")["id"],
-        "caja": ingrediente(client, "Caja")["id"],
+        "caja": ingrediente(client, "Caja", unidad_medida="UN")["id"],
         "pizza": producto(client, "Pizza muzzarella")["id"],
     }
     receta = [

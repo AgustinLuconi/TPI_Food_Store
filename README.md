@@ -224,7 +224,7 @@ Tarjetas de prueba (el resultado lo decide el **nombre del titular**): `APRO` ap
 ```bash
 # Backend (requiere la base levantada): crea sola la base de prueba `foodstore_test`, aplica las migraciones y siembra los datos.
 cd backend
-pytest                               # 265 tests (incluye 4 de concurrencia con hilos)
+pytest                               # 267 tests (incluye 4 de concurrencia con hilos)
 pytest --cov=app                     # cobertura (98 %)
 ruff check . && ruff format --check .
 alembic check                        # modelos y migraciones no divergen
@@ -304,7 +304,7 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | Producto reactivado | Vuelve como **no disponible**: habilitarlo para la venta es una decisión comercial. La baja también lo deja no disponible. |
 | `PATCH …/reactivar` en catálogo (agregado) | En productos e ingredientes, por la misma razón que en usuarios y categorías. |
 | `orden` en productos | `GET /productos` ordena por `nombre` o `precio`. |
-| RN-10 (unidad) | La primera receta que usa un ingrediente fija su unidad; usarlo en otra distinta responde 422 `UNIT_MISMATCH`. |
+| RN-10 (unidad) — **adición al ERD** | La spec exige una sola unidad por ingrediente pero no dice dónde guardarla, y el plan de trabajo dejaba la duda como consulta al profesor (proponía deducirla de la primera receta). Se decidió **guardarla en el ingrediente**: `ingrediente.unidad_medida` (`VARCHAR(10)`, `NOT NULL`, por defecto `UN`), que se elige al crearlo. Las recetas **la toman de ahí** (la columna `unidad_medida` de `ProductoIngrediente` y `RecetaIngrediente` se conserva como pide el ERD, pero la completa el servidor); si la API recibe otra distinta responde 422 `UNIT_MISMATCH`. Con recetas o stock cargados la unidad no se puede cambiar (409 `UNIT_LOCKED`), porque las cantidades existentes se leerían en otra unidad. El stock se muestra con su unidad. Es el único cambio al modelo de la cátedra: se actualizaron `docs/food_store_erd.puml` y su `.svg` para mantener la consistencia con las migraciones (CE-09) y la migración `0002` rellena los ingredientes existentes con la unidad que ya usaban. Si el profesor prefiere el modelo original, basta con revertir ese commit. |
 | Imágenes | Se valida el tipo por la firma del archivo (JPEG, PNG, WEBP), máximo 2 MB, nombre UUID; en la base solo queda la URL `/media/productos/<uuid>.ext`. En desarrollo el frontend le antepone el origen del backend. |
 | `stock_cantidad` | No se materializa: el stock sale siempre de los ledgers. |
 | Stock visible | `stock_real` y `stock_disponible` aparecen en el catálogo solo para ADMIN y STOCK; el público ve únicamente `disponible`. |
@@ -331,7 +331,7 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | Pago de MercadoPago en curso | Con un pago `pending` o `in_process` no se acepta otro cobro (409 `PAYMENT_IN_PROGRESS`): evita cobrar dos veces mientras se espera al webhook. |
 | Pago aprobado de un pedido cancelado | El webhook registra el estado pero no revive el pedido; el reembolso queda como tarea manual (fuera de alcance, igual que en la Fase 2). |
 | `GET /pagos/mercadopago/config` (agregado) | La spec dice "clave pública para el SDK del frontend" sin definir cómo llega; se sirve desde el backend para no recompilar la SPA al cambiar de credenciales. |
-| Consultas al profesor | Mientras no haya respuesta se aplican las propuestas del plan de trabajo (zonas con `activo`, unidad de medida fijada por la primera receta, lotes antes que stock sin lote, pagos por estado dentro de `/admin/metrics/resumen`). |
+| Consultas al profesor | Mientras no haya respuesta se aplican las propuestas del plan de trabajo (zonas con `activo`, lotes antes que stock sin lote, pagos por estado dentro de `/admin/metrics/resumen`). |
 
 ## Estructura
 

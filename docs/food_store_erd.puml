@@ -229,6 +229,7 @@ package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
         + id                   : BIGSERIAL           {PK}
         .. Atributos ..
         + nombre               : VARCHAR(100)        {UQ, NN, IX}
+        + unidad_medida        : VARCHAR(10)         {NN, DEFAULT 'UN'}
         + es_alergeno          : BOOLEAN             {NN, DEFAULT false}
         + es_elaborado         : BOOLEAN             {NN, DEFAULT false}
         + stock_minimo         : INTEGER             {NN, DEFAULT 0, CHECK >= 0}
@@ -245,6 +246,9 @@ package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
       receta propia (RecetaIngrediente) y
       OrdenProduccion previa. Resuelve el caso
       de producciones intermedias (BOM multiescala).
+      unidad_medida (agregado al ERD de la catedra): la
+      unica unidad del ingrediente (RN-10). Las recetas la
+      toman de aca y el stock se expresa en ella.
     end note
 
     class ProductoIngrediente <<Link>> {

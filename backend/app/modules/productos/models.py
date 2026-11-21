@@ -82,6 +82,8 @@ class Ingrediente(SQLModel, table=True):
     id: int | None = Field(sa_type=BigInteger, default=None, primary_key=True)
     # Sigue siendo único después de la baja lógica.
     nombre: str = Field(max_length=100, nullable=False, unique=True, index=True)
+    # RN-10: la unidad en la que se mide el ingrediente. Es la única fuente: las recetas y el stock la toman de acá.
+    unidad_medida: str = Field(default="UN", max_length=10, nullable=False, sa_column_kwargs={"server_default": "UN"})
     es_alergeno: bool = Field(default=False, nullable=False, sa_column_kwargs={"server_default": text("false")})
     # Sub-ensamble con receta propia (RecetaIngrediente) y OrdenProduccion previa.
     es_elaborado: bool = Field(default=False, nullable=False, sa_column_kwargs={"server_default": text("false")})

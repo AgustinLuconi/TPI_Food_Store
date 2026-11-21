@@ -4,7 +4,7 @@ import { EntityFormModal } from '@/shared/components/EntityFormModal'
 import { Checkbox } from '@/shared/ui/Checkbox'
 import { Input } from '@/shared/ui/Input'
 import { useGuardarIngrediente } from '../hooks/useCatalogo'
-import type { Ingrediente } from '../types'
+import { UNIDADES_SUGERIDAS, type Ingrediente } from '../types'
 
 interface Props {
   ingrediente: Ingrediente | null
@@ -15,6 +15,7 @@ interface Props {
 export function IngredienteFormModal({ ingrediente, onClose, onSaved }: Props) {
   const mode = ingrediente ? 'edit' : 'create'
   const [nombre, setNombre] = useState(ingrediente?.nombre ?? '')
+  const [unidad, setUnidad] = useState(ingrediente?.unidad_medida ?? '')
   const [esAlergeno, setEsAlergeno] = useState(ingrediente?.es_alergeno ?? false)
   const [esElaborado, setEsElaborado] = useState(ingrediente?.es_elaborado ?? false)
   const [stockMinimo, setStockMinimo] = useState(String(ingrediente?.stock_minimo ?? 0))
@@ -24,6 +25,7 @@ export function IngredienteFormModal({ ingrediente, onClose, onSaved }: Props) {
   function enviar() {
     const nuevos: Record<string, string> = {}
     if (!nombre.trim()) nuevos.nombre = 'Ingresá un nombre'
+    if (!unidad.trim()) nuevos.unidad = 'Indicá la unidad en la que se mide'
     if (!/^\d+$/.test(stockMinimo)) nuevos.stockMinimo = 'Ingresá un número entero (0 o más)'
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
@@ -32,6 +34,7 @@ export function IngredienteFormModal({ ingrediente, onClose, onSaved }: Props) {
         id: ingrediente?.id,
         input: {
           nombre: nombre.trim(),
+          unidad_medida: unidad.trim().toUpperCase(),
           es_alergeno: esAlergeno,
           es_elaborado: esElaborado,
           stock_minimo: Number(stockMinimo),
@@ -61,6 +64,22 @@ export function IngredienteFormModal({ ingrediente, onClose, onSaved }: Props) {
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         error={errores.nombre ?? deCampo('nombre')}
+      />
+      <datalist id="unidades-sugeridas">
+        {UNIDADES_SUGERIDAS.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
+      <Input
+        label="Unidad de medida"
+        required
+        list="unidades-sugeridas"
+        maxLength={10}
+        placeholder="KG, G, L, ML, UN…"
+        hint="Se usa siempre: en las recetas y en el stock. No se puede cambiar si ya está en una receta o tiene stock."
+        value={unidad}
+        onChange={(e) => setUnidad(e.target.value)}
+        error={errores.unidad ?? deCampo('unidad_medida')}
       />
       <Input
         label="Stock mínimo"

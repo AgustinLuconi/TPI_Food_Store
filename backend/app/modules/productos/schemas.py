@@ -163,8 +163,18 @@ class FiltrosIngredientes(FiltrosDeListado):
     sentido: Sentido = "asc"
 
 
+def _unidad(valor: str) -> str:
+    valor = valor.strip().upper()
+    if not valor:
+        raise ValueError("La unidad de medida no puede estar vacía")
+    return valor
+
+
 class IngredienteCreate(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
+    unidad_medida: str = Field(
+        default="UN", min_length=1, max_length=10, description="Unidad en la que se mide (RN-10): KG, G, L, ML, UN…"
+    )
     es_alergeno: bool = False
     es_elaborado: bool = Field(default=False, description="Sub-ensamble con receta propia")
     stock_minimo: int = Field(default=0, ge=0)
@@ -174,9 +184,15 @@ class IngredienteCreate(BaseModel):
     def nombre_sin_espacios(cls, valor: str) -> str:
         return _sin_espacios(valor)  # type: ignore[return-value]
 
+    @field_validator("unidad_medida")
+    @classmethod
+    def unidad_en_mayusculas(cls, valor: str) -> str:
+        return _unidad(valor)
+
 
 class IngredienteUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=100)
+    unidad_medida: str | None = Field(default=None, min_length=1, max_length=10)
     es_alergeno: bool | None = None
     es_elaborado: bool | None = None
     stock_minimo: int | None = Field(default=None, ge=0)
@@ -186,12 +202,18 @@ class IngredienteUpdate(BaseModel):
     def nombre_sin_espacios(cls, valor: str | None) -> str | None:
         return _sin_espacios(valor)
 
+    @field_validator("unidad_medida")
+    @classmethod
+    def unidad_en_mayusculas(cls, valor: str | None) -> str | None:
+        return None if valor is None else _unidad(valor)
+
 
 class IngredienteRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     nombre: str
+    unidad_medida: str
     es_alergeno: bool
     es_elaborado: bool
     stock_minimo: int
@@ -205,23 +227,17 @@ class IngredienteRead(BaseModel):
 # ----------------------------------------------------------------------------------------------
 
 
-def _unidad(valor: str) -> str:
-    valor = valor.strip().upper()
-    if not valor:
-        raise ValueError("La unidad de medida no puede estar vacía")
-    return valor
-
-
 class RecetaProductoItem(BaseModel):
     ingrediente_id: int
     cantidad_requerida: Cantidad = Field(gt=0, max_digits=10, decimal_places=3)
-    unidad_medida: str = Field(default="UN", min_length=1, max_length=10)
+    # Opcional: la unidad es la del ingrediente. Si se envía y es otra, el servidor responde UNIT_MISMATCH.
+    unidad_medida: str | None = Field(default=None, min_length=1, max_length=10)
     es_removible: bool = True
 
     @field_validator("unidad_medida")
     @classmethod
-    def unidad_en_mayusculas(cls, valor: str) -> str:
-        return _unidad(valor)
+    def unidad_en_mayusculas(cls, valor: str | None) -> str | None:
+        return None if valor is None else _unidad(valor)
 
 
 class RecetaProductoUpdate(BaseModel):
@@ -233,12 +249,12 @@ class RecetaProductoUpdate(BaseModel):
 class RecetaIngredienteItem(BaseModel):
     componente_id: int
     cantidad_requerida: Cantidad = Field(gt=0, max_digits=10, decimal_places=3)
-    unidad_medida: str = Field(default="UN", min_length=1, max_length=10)
+    unidad_medida: str | None = Field(default=None, min_length=1, max_length=10)  # ídem: la fija el ingrediente
 
     @field_validator("unidad_medida")
     @classmethod
-    def unidad_en_mayusculas(cls, valor: str) -> str:
-        return _unidad(valor)
+    def unidad_en_mayusculas(cls, valor: str | None) -> str | None:
+        return None if valor is None else _unidad(valor)
 
 
 class RecetaIngredienteUpdate(BaseModel):

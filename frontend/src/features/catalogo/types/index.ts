@@ -31,6 +31,8 @@ export interface ProductoInput {
 export interface Ingrediente {
   id: number
   nombre: string
+  /** Unidad en la que se mide siempre (RN-10): las recetas y el stock la toman de acá. */
+  unidad_medida: string
   es_alergeno: boolean
   es_elaborado: boolean
   stock_minimo: number
@@ -41,6 +43,7 @@ export interface Ingrediente {
 
 export interface IngredienteInput {
   nombre: string
+  unidad_medida: string
   es_alergeno: boolean
   es_elaborado: boolean
   stock_minimo: number

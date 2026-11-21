@@ -50,6 +50,7 @@ export default function IngredientesPage() {
       sortKey: 'nombre',
       render: (i) => <span className="font-semibold">{i.nombre}</span>,
     },
+    { key: 'unidad', header: 'Unidad', render: (i) => i.unidad_medida },
     {
       key: 'tipo',
       header: 'Tipo',
@@ -75,7 +76,8 @@ export default function IngredientesPage() {
                 : undefined
             }
           >
-            {formatearCantidad(i.stock_real)} / {formatearCantidad(i.stock_disponible ?? 0)}
+            {formatearCantidad(i.stock_real)} / {formatearCantidad(i.stock_disponible ?? 0)}{' '}
+            {i.unidad_medida}
           </span>
         ),
     },

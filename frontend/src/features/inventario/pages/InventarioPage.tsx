@@ -48,11 +48,16 @@ function TablaStock({ tipo }: { tipo: TipoItem }) {
       sortKey: 'nombre',
       render: (i) => <span className="font-semibold">{i.nombre}</span>,
     },
-    { key: 'real', header: 'Stock real', render: (i) => formatearCantidad(i.stock_real ?? 0) },
+    {
+      key: 'real',
+      header: 'Stock real',
+      render: (i) => `${formatearCantidad(i.stock_real ?? 0)} ${i.unidad_medida ?? ''}`.trim(),
+    },
     {
       key: 'disp',
       header: 'Disponible',
-      render: (i) => formatearCantidad(i.stock_disponible ?? 0),
+      render: (i) =>
+        `${formatearCantidad(i.stock_disponible ?? 0)} ${i.unidad_medida ?? ''}`.trim(),
     },
     { key: 'min', header: 'Mínimo', render: (i) => i.stock_minimo },
     {

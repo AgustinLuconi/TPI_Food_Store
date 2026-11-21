@@ -41,6 +41,8 @@ export type TipoItem = 'producto' | 'ingrediente'
 export interface ItemStock {
   id: number
   nombre: string
+  /** Solo los ingredientes tienen unidad (RN-10); un producto se cuenta en unidades. */
+  unidad_medida?: string
   stock_minimo: number
   stock_real: string | null
   stock_disponible: string | null

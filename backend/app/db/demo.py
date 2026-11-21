@@ -85,13 +85,13 @@ def _catalogo() -> dict[str, int]:
 
     prod = ProductosUnitOfWork()
     for nombre, kwargs in [
-        ("Harina", {"es_alergeno": True}),
-        ("Muzzarella", {"es_alergeno": True}),
-        ("Tomate", {}),
-        ("Cebolla", {}),
-        ("Carne picada", {}),
-        ("Caja de pizza", {}),
-        ("Salsa de tomate", {"es_elaborado": True}),
+        ("Harina", {"unidad_medida": "KG", "es_alergeno": True}),
+        ("Muzzarella", {"unidad_medida": "KG", "es_alergeno": True}),
+        ("Tomate", {"unidad_medida": "KG"}),
+        ("Cebolla", {"unidad_medida": "KG"}),
+        ("Carne picada", {"unidad_medida": "KG"}),
+        ("Caja de pizza", {"unidad_medida": "UN"}),
+        ("Salsa de tomate", {"unidad_medida": "KG", "es_elaborado": True}),
     ]:
         ids[nombre] = productos.crear_ingrediente(prod, IngredienteCreate(nombre=nombre, stock_minimo=2, **kwargs)).id
     productos.reemplazar_receta_ingrediente(

@@ -224,26 +224,19 @@ def subir_imagen(uow: ProductosUnitOfWork, producto_id: int, contenido: bytes) -
 # ----------------------------------------------------------------------------------------------
 
 
-def _validar_unidad(
-    uow: ProductosUnitOfWork,
-    ingrediente: Ingrediente,
-    unidad: str,
-    *,
-    excluir_producto_id: int | None = None,
-    excluir_padre_id: int | None = None,
-) -> None:
-    """RN-10: la primera receta que usa un ingrediente fija su unidad; las demás deben coincidir."""
-    fijada = uow.recetas.unidad_de(
-        ingrediente.id,  # type: ignore[arg-type]
-        excluir_producto_id=excluir_producto_id,
-        excluir_padre_id=excluir_padre_id,
-    )
-    if fijada is not None and fijada != unidad:
+def _unidad_de_receta(ingrediente: Ingrediente, enviada: str | None) -> str:
+    """RN-10: la unidad de un ingrediente es la que se definió al crearlo; las recetas la toman de ahí.
+
+    El cliente puede omitirla. Si la envía y es otra, se rechaza: la regla se cumple aunque se llame a la API
+    directamente, sin pasar por el formulario que ya muestra la unidad bloqueada.
+    """
+    if enviada is not None and enviada != ingrediente.unidad_medida:
         raise ValidationError(
-            f"«{ingrediente.nombre}» se mide en {fijada}: no puede usarse en {unidad}",
+            f"«{ingrediente.nombre}» se mide en {ingrediente.unidad_medida}: no puede usarse en {enviada}",
             code="UNIT_MISMATCH",
             field="unidad_medida",
         )
+    return ingrediente.unidad_medida
 
 
 def _ingredientes_validos(uow: ProductosUnitOfWork, ids: list[int]) -> dict[int, Ingrediente]:
@@ -276,8 +269,9 @@ def reemplazar_receta_producto(
     with uow:
         producto = _obtener_producto(uow, producto_id)
         ingredientes = _ingredientes_validos(uow, [i.ingrediente_id for i in datos.items])
-        for item in datos.items:
-            _validar_unidad(uow, ingredientes[item.ingrediente_id], item.unidad_medida, excluir_producto_id=producto_id)
+        unidades = {
+            i.ingrediente_id: _unidad_de_receta(ingredientes[i.ingrediente_id], i.unidad_medida) for i in datos.items
+        }
         uow.recetas.reemplazar_de_producto(
             producto_id,
             [
@@ -285,7 +279,7 @@ def reemplazar_receta_producto(
                     producto_id=producto_id,
                     ingrediente_id=i.ingrediente_id,
                     cantidad_requerida=i.cantidad_requerida,
-                    unidad_medida=i.unidad_medida,
+                    unidad_medida=unidades[i.ingrediente_id],
                     es_removible=i.es_removible,
                 )
                 for i in datos.items
@@ -353,13 +347,21 @@ def crear_ingrediente(uow: ProductosUnitOfWork, datos: IngredienteCreate) -> Ing
 def actualizar_ingrediente(uow: ProductosUnitOfWork, ingrediente_id: int, datos: IngredienteUpdate) -> IngredienteRead:
     """Edición parcial. Un ingrediente con receta no puede dejar de ser elaborado (RN-11)."""
     cambios = datos.model_dump(exclude_unset=True)
-    for campo in ("nombre", "es_alergeno", "es_elaborado", "stock_minimo"):
+    for campo in ("nombre", "unidad_medida", "es_alergeno", "es_elaborado", "stock_minimo"):
         if campo in cambios and cambios[campo] is None:
             raise ValidationError(f"{campo} no puede ser nulo", field=campo)
     with uow:
         ingrediente = _obtener_ingrediente(uow, ingrediente_id)
         if "nombre" in cambios:
             _nombre_libre(uow, cambios["nombre"], excluir_id=ingrediente_id)
+        if cambios.get("unidad_medida", ingrediente.unidad_medida) != ingrediente.unidad_medida:
+            # RN-10: con recetas o stock cargados, las cantidades existentes se leerían en otra unidad.
+            if uow.ingredientes.tiene_historial(ingrediente_id):
+                raise ConflictError(
+                    f"«{ingrediente.nombre}» ya está en recetas o tiene stock: no se le puede cambiar la unidad",
+                    code="UNIT_LOCKED",
+                    field="unidad_medida",
+                )
         if cambios.get("es_elaborado") is False and uow.ingredientes.tiene_receta(ingrediente_id):
             raise ConflictError(
                 "Tiene receta: primero hay que vaciarla para dejar de ser elaborado",
@@ -441,8 +443,9 @@ def reemplazar_receta_ingrediente(
                 code="RECIPE_CYCLE",
                 field="items",
             )
-        for item in datos.items:
-            _validar_unidad(uow, componentes[item.componente_id], item.unidad_medida, excluir_padre_id=ingrediente_id)
+        unidades = {
+            i.componente_id: _unidad_de_receta(componentes[i.componente_id], i.unidad_medida) for i in datos.items
+        }
         uow.recetas.reemplazar_de_ingrediente(
             ingrediente_id,
             [
@@ -450,7 +453,7 @@ def reemplazar_receta_ingrediente(
                     ingrediente_padre_id=ingrediente_id,
                     componente_id=i.componente_id,
                     cantidad_requerida=i.cantidad_requerida,
-                    unidad_medida=i.unidad_medida,
+                    unidad_medida=unidades[i.componente_id],
                 )
                 for i in datos.items
             ],

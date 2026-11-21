@@ -139,9 +139,15 @@ export function MovimientosModal({ tipo, item, onClose }: Props) {
     >
       <div className="flex flex-col gap-6">
         <p className="text-sm text-navy-700">
-          Stock real <strong>{formatearCantidad(item.stock_real ?? 0)}</strong> · disponible{' '}
-          <strong>{formatearCantidad(item.stock_disponible ?? 0)}</strong>. El disponible descuenta
-          lo reservado por pedidos y órdenes de producción.
+          Stock real{' '}
+          <strong>
+            {formatearCantidad(item.stock_real ?? 0)} {item.unidad_medida}
+          </strong>{' '}
+          · disponible{' '}
+          <strong>
+            {formatearCantidad(item.stock_disponible ?? 0)} {item.unidad_medida}
+          </strong>
+          . El disponible descuenta lo reservado por pedidos y órdenes de producción.
         </p>
 
         <form

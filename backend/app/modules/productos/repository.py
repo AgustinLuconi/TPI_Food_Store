@@ -11,6 +11,7 @@ from app.core.schemas import Estado
 from app.modules.categorias.models import Categoria
 from app.modules.productos.models import (
     Ingrediente,
+    MovimientoIngrediente,
     Producto,
     ProductoCategoria,
     ProductoIngrediente,
@@ -152,6 +153,22 @@ class IngredienteRepository(BaseRepository[Ingrediente]):
         )
         return self.session.execute(stmt).scalar_one() > 0
 
+    def tiene_historial(self, ingrediente_id: int) -> bool:
+        """True si el ingrediente figura en alguna receta (de venta o de un elaborado) o tiene movimientos de
+        stock. Con historial no se le puede cambiar la unidad: las cantidades ya cargadas se leerían distinto."""
+        consultas = (
+            sa_select(func.count())
+            .select_from(ProductoIngrediente)
+            .where(ProductoIngrediente.ingrediente_id == ingrediente_id),
+            sa_select(func.count())
+            .select_from(RecetaIngrediente)
+            .where(RecetaIngrediente.componente_id == ingrediente_id),
+            sa_select(func.count())
+            .select_from(MovimientoIngrediente)
+            .where(MovimientoIngrediente.ingrediente_id == ingrediente_id),
+        )
+        return any(self.session.execute(c).scalar_one() > 0 for c in consultas)
+
 
 class RecetaRepository:
     """Recetas de venta (ProductoIngrediente) y de ingredientes elaborados (RecetaIngrediente)."""
@@ -196,22 +213,3 @@ class RecetaRepository:
             RecetaIngrediente.ingrediente_padre_id != excluyendo_padre_id
         )
         return [(p, c) for p, c in self.session.exec(stmt).all()]
-
-    # --- RN-10: una sola unidad por ingrediente ----------------------------------------------------
-    def unidad_de(
-        self, ingrediente_id: int, *, excluir_producto_id: int | None = None, excluir_padre_id: int | None = None
-    ) -> str | None:
-        """Unidad con la que otras recetas ya usan el ingrediente (la primera receta la fija).
-        Se excluye la receta que se está reemplazando."""
-        en_productos = select(ProductoIngrediente.unidad_medida).where(
-            ProductoIngrediente.ingrediente_id == ingrediente_id
-        )
-        if excluir_producto_id is not None:
-            en_productos = en_productos.where(ProductoIngrediente.producto_id != excluir_producto_id)
-        unidad = self.session.exec(en_productos).first()
-        if unidad:
-            return unidad
-        en_recetas = select(RecetaIngrediente.unidad_medida).where(RecetaIngrediente.componente_id == ingrediente_id)
-        if excluir_padre_id is not None:
-            en_recetas = en_recetas.where(RecetaIngrediente.ingrediente_padre_id != excluir_padre_id)
-        return self.session.exec(en_recetas).first()

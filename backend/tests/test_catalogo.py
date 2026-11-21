@@ -32,7 +32,8 @@ def producto(client: TestClient, nombre: str = "Pizza", precio: str = "9500.00",
 
 
 def ingrediente(client: TestClient, nombre: str, **extra) -> dict:
-    r = client.post(f"{API}/ingredientes", json={"nombre": nombre, **extra})
+    # La unidad se define al crear el ingrediente (RN-10); por defecto KG, salvo que el test pida otra.
+    r = client.post(f"{API}/ingredientes", json={"nombre": nombre, "unidad_medida": "KG", **extra})
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -366,13 +367,11 @@ def test_un_ingrediente_con_receta_no_deja_de_ser_elaborado(client):
 # ----------------------------------------------------------------------------------------------
 
 
-def item(ing_id: int, cantidad: str = "1", unidad: str = "UN", removible: bool = True) -> dict:
-    return {
-        "ingrediente_id": ing_id,
-        "cantidad_requerida": cantidad,
-        "unidad_medida": unidad,
-        "es_removible": removible,
-    }
+def item(ing_id: int, cantidad: str = "1", unidad: str | None = None, removible: bool = True) -> dict:
+    fila = {"ingrediente_id": ing_id, "cantidad_requerida": cantidad, "es_removible": removible}
+    if unidad is not None:  # si se omite, la receta toma la unidad del ingrediente
+        fila["unidad_medida"] = unidad
+    return fila
 
 
 def test_receta_de_venta_con_alergenos_y_lectura_publica(client):
@@ -417,49 +416,76 @@ def test_validaciones_de_la_receta_de_venta(client):
     assert client.put(f"{API}/productos/999999/ingredientes", json={"items": []}).status_code == 404
 
 
-def test_rn10_la_primera_receta_fija_la_unidad_del_ingrediente(client):
+def test_rn10_la_unidad_se_define_al_crear_el_ingrediente(client):
     login_admin(client)
-    harina = ingrediente(client, "Harina")
+    # Sin indicarla se mide en UN (el valor por defecto del ERD); se normaliza a mayúsculas.
+    sin_unidad = client.post(f"{API}/ingredientes", json={"nombre": "Caja"})
+    assert sin_unidad.status_code == 201 and sin_unidad.json()["unidad_medida"] == "UN"
+    assert ingrediente(client, "Harina", unidad_medida="kg")["unidad_medida"] == "KG"
+    # La unidad no puede quedar vacía.
+    assert client.post(f"{API}/ingredientes", json={"nombre": "Sal", "unidad_medida": "  "}).status_code == 422
+    # La lectura la devuelve.
+    por_nombre = {i["nombre"]: i["unidad_medida"] for i in client.get(f"{API}/ingredientes").json()["items"]}
+    assert por_nombre == {"Caja": "UN", "Harina": "KG"}
+
+
+def test_rn10_las_recetas_toman_la_unidad_del_ingrediente(client):
+    login_admin(client)
+    harina = ingrediente(client, "Harina")  # KG
     pizza, pan = producto(client, "Pizza"), producto(client, "Pan")
 
-    assert (
-        client.put(
-            f"{API}/productos/{pizza['id']}/ingredientes", json={"items": [item(harina["id"], "0.3", "KG")]}
-        ).status_code
-        == 200
-    )
+    # Sin enviar la unidad, la receta queda en la del ingrediente.
+    r = client.put(f"{API}/productos/{pizza['id']}/ingredientes", json={"items": [item(harina["id"], "0.3")]})
+    assert r.status_code == 200, r.text
+    assert r.json()[0]["unidad_medida"] == "KG"
+    # Enviar la misma (en cualquier capitalización) también vale.
+    r = client.put(f"{API}/productos/{pan['id']}/ingredientes", json={"items": [item(harina["id"], "0.5", "kg")]})
+    assert r.status_code == 200 and r.json()[0]["unidad_medida"] == "KG"
+    # Enviar otra se rechaza aunque no se pase por el formulario.
     r = client.put(f"{API}/productos/{pan['id']}/ingredientes", json={"items": [item(harina["id"], "300", "G")]})
     assert r.status_code == 422 and r.json()["code"] == "UNIT_MISMATCH"
     assert "KG" in r.json()["detail"]
-    assert (
-        client.put(
-            f"{API}/productos/{pan['id']}/ingredientes", json={"items": [item(harina["id"], "0.5", "KG")]}
-        ).status_code
-        == 200
-    )
-
-    # reemplazar la propia receta no choca con la unidad que ella misma había fijado
-    sola = producto(client, "Sola")
-    otro = ingrediente(client, "Sal")
-    client.put(f"{API}/productos/{sola['id']}/ingredientes", json={"items": [item(otro["id"], "1", "G")]})
-    assert (
-        client.put(
-            f"{API}/productos/{sola['id']}/ingredientes", json={"items": [item(otro["id"], "1", "KG")]}
-        ).status_code
-        == 200
-    )
 
 
-def test_rn10_tambien_rige_entre_la_receta_de_venta_y_la_de_un_elaborado(client):
+def test_rn10_tambien_rige_para_la_receta_de_un_elaborado(client):
     login_admin(client)
     tomate, salsa = ingrediente(client, "Tomate"), ingrediente(client, "Salsa", es_elaborado=True)
-    p = producto(client)
-    client.put(f"{API}/productos/{p['id']}/ingredientes", json={"items": [item(tomate["id"], "2", "UN")]})
-    r = client.put(
-        f"{API}/ingredientes/{salsa['id']}/receta",
-        json={"items": [{"componente_id": tomate["id"], "cantidad_requerida": "1", "unidad_medida": "KG"}]},
-    )
+    url = f"{API}/ingredientes/{salsa['id']}/receta"
+    r = client.put(url, json={"items": [comp(tomate["id"], "1", "UN")]})
     assert r.status_code == 422 and r.json()["code"] == "UNIT_MISMATCH"
+    r = client.put(url, json={"items": [comp(tomate["id"], "2")]})
+    assert r.status_code == 200 and r.json()[0]["unidad_medida"] == "KG"
+
+
+def test_rn10_la_unidad_se_cambia_solo_mientras_no_tenga_recetas_ni_stock(client):
+    login_admin(client)
+    harina, sal = ingrediente(client, "Harina"), ingrediente(client, "Sal")
+    url = f"{API}/ingredientes/{harina['id']}"
+
+    # Recién creado: se puede corregir.
+    r = client.put(url, json={"unidad_medida": "g"})
+    assert r.status_code == 200 and r.json()["unidad_medida"] == "G"
+
+    # Con una receta que la usa, queda bloqueada…
+    p = producto(client)
+    assert (
+        client.put(f"{API}/productos/{p['id']}/ingredientes", json={"items": [item(harina["id"])]}).status_code == 200
+    )
+    r = client.put(url, json={"unidad_medida": "KG"})
+    assert r.status_code == 409 and r.json()["code"] == "UNIT_LOCKED"
+    # …pero reenviar la misma (como hace el formulario al editar otro campo) no es un cambio.
+    assert client.put(url, json={"unidad_medida": "G", "stock_minimo": 3}).status_code == 200
+
+    # El stock cargado también la bloquea: las cantidades ya existentes se leerían en otra unidad.
+    assert (
+        client.post(
+            f"{API}/ingredientes/{sal['id']}/movimientos", json={"tipo_movimiento": "ENTRADA", "cantidad": "5"}
+        ).status_code
+        == 201
+    )
+    r = client.put(f"{API}/ingredientes/{sal['id']}", json={"unidad_medida": "G"})
+    assert r.status_code == 409 and r.json()["code"] == "UNIT_LOCKED"
+    assert client.put(f"{API}/ingredientes/{sal['id']}", json={"unidad_medida": None}).status_code == 422
 
 
 # ----------------------------------------------------------------------------------------------
@@ -467,8 +493,11 @@ def test_rn10_tambien_rige_entre_la_receta_de_venta_y_la_de_un_elaborado(client)
 # ----------------------------------------------------------------------------------------------
 
 
-def comp(ing_id: int, cantidad: str = "1", unidad: str = "UN") -> dict:
-    return {"componente_id": ing_id, "cantidad_requerida": cantidad, "unidad_medida": unidad}
+def comp(ing_id: int, cantidad: str = "1", unidad: str | None = None) -> dict:
+    fila = {"componente_id": ing_id, "cantidad_requerida": cantidad}
+    if unidad is not None:
+        fila["unidad_medida"] = unidad
+    return fila
 
 
 def test_rn11_solo_un_elaborado_puede_tener_receta(client):

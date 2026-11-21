@@ -12,7 +12,7 @@ import {
   useReceta,
   type TipoReceta,
 } from '../hooks/useCatalogo'
-import { UNIDADES_SUGERIDAS, type LineaReceta } from '../types'
+import type { LineaReceta } from '../types'
 
 interface Props {
   tipo: TipoReceta
@@ -27,7 +27,6 @@ interface Fila {
   clave: number
   ingredienteId: string
   cantidad: string
-  unidad: string
   removible: boolean
 }
 
@@ -36,13 +35,12 @@ const filaVacia = (): Fila => ({
   clave: ++contador,
   ingredienteId: '',
   cantidad: '',
-  unidad: 'KG',
   removible: false,
 })
 
 /**
  * Editor de recetas, para el producto (con "removible") y para un ingrediente elaborado. Reemplaza la receta
- * completa. La unidad de cada ingrediente es única en todo el sistema (RN-10): el servidor rechaza una distinta.
+ * completa. La unidad no se elige acá: es la que se definió al crear el ingrediente (RN-10) y solo se muestra.
  */
 export function RecetaModal({ tipo, id, nombre, onClose, onSaved }: Props) {
   const { data: guardada, isLoading, isError } = useReceta(tipo, id)
@@ -78,7 +76,6 @@ function Editor({
           clave: ++contador,
           ingredienteId: String(l.ingrediente_id),
           cantidad: l.cantidad_requerida,
-          unidad: l.unidad_medida,
           removible: l.es_removible,
         }))
       : [filaVacia()],
@@ -92,8 +89,11 @@ function Editor({
     { value: '', label: 'Elegí un ingrediente…' },
     ...ingredientes
       .filter((i) => tipo === 'producto' || i.id !== id)
-      .map((i) => ({ value: String(i.id), label: i.nombre })),
+      .map((i) => ({ value: String(i.id), label: `${i.nombre} (${i.unidad_medida})` })),
   ]
+
+  const unidadDe = (ingredienteId: string) =>
+    ingredientes.find((i) => String(i.id) === ingredienteId)?.unidad_medida ?? ''
 
   function cambiar(clave: number, cambios: Partial<Fila>) {
     setFilas((actuales) => actuales.map((f) => (f.clave === clave ? { ...f, ...cambios } : f)))
@@ -108,8 +108,6 @@ function Editor({
       completas.some((f) => !/^\d+(\.\d{1,3})?$/.test(f.cantidad.trim()) || Number(f.cantidad) <= 0)
     )
       return setErrorLocal('La cantidad debe ser mayor que 0, con hasta 3 decimales.')
-    if (completas.some((f) => !f.unidad.trim()))
-      return setErrorLocal('Indicá la unidad de cada fila.')
     if (new Set(ids).size !== ids.length)
       return setErrorLocal('Un ingrediente no puede repetirse en la receta.')
     setErrorLocal(null)
@@ -118,7 +116,7 @@ function Editor({
         ingrediente_id: Number(f.ingredienteId),
         nombre: '',
         cantidad_requerida: f.cantidad.trim(),
-        unidad_medida: f.unidad.trim().toUpperCase(),
+        unidad_medida: unidadDe(f.ingredienteId),
         es_removible: f.removible,
       })),
       { onSuccess: onSaved },
@@ -136,11 +134,6 @@ function Editor({
       }}
       className="flex flex-col gap-4"
     >
-      <datalist id="unidades-sugeridas">
-        {UNIDADES_SUGERIDAS.map((u) => (
-          <option key={u} value={u} />
-        ))}
-      </datalist>
       <p className="text-sm text-navy-500">
         {tipo === 'producto'
           ? 'Lo que consume cada unidad vendida. Los ingredientes removibles permiten pedir el producto "sin" ese ingrediente.'
@@ -166,10 +159,10 @@ function Editor({
             />
             <Input
               label="Unidad"
-              list="unidades-sugeridas"
-              maxLength={10}
-              value={f.unidad}
-              onChange={(e) => cambiar(f.clave, { unidad: e.target.value })}
+              hint="La define el ingrediente."
+              readOnly
+              tabIndex={-1}
+              value={unidadDe(f.ingredienteId) || '—'}
             />
           </div>
           <div className="flex items-center justify-between">

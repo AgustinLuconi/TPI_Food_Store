@@ -165,7 +165,7 @@ def test_ordenes_de_produccion_simultaneas_no_reservan_mas_insumos_de_los_que_ha
     from app.modules.productos.schemas import IngredienteCreate, RecetaProductoItem, RecetaProductoUpdate
 
     uow_p = ProductosUnitOfWork(factory)
-    harina = productos.crear_ingrediente(uow_p, IngredienteCreate(nombre="Harina concurrente")).id
+    harina = productos.crear_ingrediente(uow_p, IngredienteCreate(nombre="Harina concurrente", unidad_medida="KG")).id
     pan = productos.crear_producto(
         uow_p, ProductoCreate(nombre="Pan concurrente", precio_base=Decimal("500"), categoria_ids=[])
     ).id

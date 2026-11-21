@@ -57,7 +57,7 @@ def _orden_read(uow: ProduccionUnitOfWork, orden: OrdenProduccion, *, con_compon
                     ingrediente_id=ing_id,
                     nombre=ingrediente.nombre if ingrediente else "",
                     cantidad=cantidad,
-                    unidad_medida=uow.recetas.unidad_de(ing_id),
+                    unidad_medida=ingrediente.unidad_medida if ingrediente else None,
                 )
             )
     return lectura
