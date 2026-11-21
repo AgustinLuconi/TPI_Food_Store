@@ -126,8 +126,9 @@ docker compose up -d --build  # la primera vez tarda unos minutos (construye las
 - Datos de demostración (catálogo, stock, usuarios de cada rol y pedidos en todos los estados), opcional:
   `docker compose exec backend python -m app.db.demo`.
 - Ver el estado: `docker compose ps`. Ver los registros del backend: `docker compose logs -f backend`.
-- Apagar conservando los datos: `docker compose stop`; volver a encender: `docker compose up -d`.
-- Borrar todo, datos incluidos: `docker compose down -v`.
+- Apagar conservando los datos: `docker compose stop` (o `docker compose down`, que además elimina los
+  contenedores pero **no** los datos, que viven en volúmenes aparte); volver a encender: `docker compose up -d`.
+- Borrar todo, datos incluidos: `docker compose down -v` (la opción `-v` es la que elimina los volúmenes).
 
 Si cambiás el `.env`, hay que recrear el servicio afectado (`docker compose up -d backend`) para que lea los valores nuevos.
 Para recibir los avisos reales de MercadoPago con este despliegue, ver «Probar el webhook en tu máquina (túnel)».
