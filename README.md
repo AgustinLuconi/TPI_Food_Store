@@ -14,7 +14,7 @@ Sistema de gestión de pedidos de comida (TPI · Programación 3 y Arquitectura 
 
 - Python 3.11 o superior, con el módulo `venv` (en Ubuntu/Debian: `sudo apt install python3-venv`)
 - Node.js 22 y npm
-- Docker con Compose v2 (solo para la base de datos de desarrollo)
+- Docker con Compose v2 (para la base de datos de desarrollo o, si se prefiere, para levantar todo: ver «Despliegue con Docker Compose»)
 
 ## Puesta en marcha
 
@@ -109,14 +109,30 @@ Los usuarios `cliente@`, `stock@` y `pedidos@foodstore.com` usan la misma clave 
 
 ## Despliegue con Docker Compose
 
-Levanta todo el sistema (4 servicios) con un solo comando. **Solo Nginx publica un puerto**; la base y la API
-quedan en la red interna.
+Levanta todo el sistema (4 servicios) con un solo comando, sin instalar Python ni Node. **Solo Nginx publica un
+puerto**; la base y la API quedan en la red interna. Es la forma recomendada de ejecutar el proyecto terminado.
+
+### Inicio rápido
+
+Requiere solo Docker con Compose v2. Desde la raíz del repositorio:
 
 ```bash
-cp .env.example .env          # y completar/ajustar: POSTGRES_PASSWORD, SECRET_KEY (mín. 32 caracteres), etc.
-docker compose up -d --build
-# Aplicación: http://localhost · Documentación de la API: http://localhost/docs
+cp .env.example .env          # solo la primera vez; completar POSTGRES_PASSWORD y SECRET_KEY (mín. 32 caracteres)
+docker compose up -d --build  # la primera vez tarda unos minutos (construye las imágenes)
 ```
+
+- Aplicación: <http://localhost> · Documentación de la API: <http://localhost/docs>.
+- Usuario inicial: `admin@foodstore.com` / `FoodStore2026!`.
+- Datos de demostración (catálogo, stock, usuarios de cada rol y pedidos en todos los estados), opcional:
+  `docker compose exec backend python -m app.db.demo`.
+- Ver el estado: `docker compose ps`. Ver los registros del backend: `docker compose logs -f backend`.
+- Apagar conservando los datos: `docker compose stop`; volver a encender: `docker compose up -d`.
+- Borrar todo, datos incluidos: `docker compose down -v`.
+
+Si cambiás el `.env`, hay que recrear el servicio afectado (`docker compose up -d backend`) para que lea los valores nuevos.
+Para recibir los avisos reales de MercadoPago con este despliegue, ver «Probar el webhook en tu máquina (túnel)».
+
+### Los servicios
 
 | Servicio | Imagen | Función |
 | --- | --- | --- |
@@ -129,10 +145,11 @@ Detalles de Nginx que importan: `client_max_body_size 5m` (las imágenes llegan 
 enrutado (si no, `/docs` queda en blanco) y `X-Forwarded-For` **sobrescrito** con la IP real, para que el
 límite de intentos de login no se pueda esquivar falseando la cabecera.
 
-Para cargar los datos de demostración en el despliegue:
-`docker compose exec backend python -m app.db.demo`. Con `ENVIRONMENT=production` las cookies de sesión
-pasan a `Secure` (solo HTTPS); en `localhost` dejar `development`. Apagar con `docker compose stop`
-(conserva los datos) o `docker compose down -v` (los borra).
+**Cookies y HTTPS.** Las cookies de sesión son `HttpOnly` y `SameSite=Lax`; con `ENVIRONMENT=production` se marcan
+además `Secure` (solo viajan por HTTPS), como pide la spec (`secure=COOKIE_SECURE`). Para uso local por
+`http://localhost` se deja `ENVIRONMENT=development`, porque algunos navegadores no guardan cookies `Secure` por HTTP.
+Con `production` hay que entrar por HTTPS: verificado abriendo el despliegue por la dirección `https://` de un túnel
+(inicio de sesión, cookies `Secure` y `GET /auth/me` correctos).
 
 ## MercadoPago (Anexo B, opcional)
 
