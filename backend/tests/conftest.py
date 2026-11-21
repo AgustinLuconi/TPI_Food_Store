@@ -24,6 +24,10 @@ TEST_DB_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ.setdefault("SECRET_KEY", secrets.token_urlsafe(48))
 os.environ["ENVIRONMENT"] = "development"
+# Los tests nunca usan las credenciales de MercadoPago del .env de quien los corre: parten "sin credenciales" y
+# los que las necesitan las ponen con el fixture mp_configurado (la pasarela real jamás se llama).
+for _nombre in ("MP_ACCESS_TOKEN", "MP_PUBLIC_KEY", "MP_NOTIFICATION_URL", "MP_WEBHOOK_SECRET"):
+    os.environ[_nombre] = ""
 # Las imágenes de los tests van a una carpeta temporal, nunca al proyecto.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="foodstore-media-")
 atexit.register(shutil.rmtree, os.environ["MEDIA_DIR"], ignore_errors=True)
