@@ -9,7 +9,7 @@ from app.core.errors import NotFoundError, ValidationError
 from app.modules.inventario.service import calcular_lotes_por_vencer
 from app.modules.metricas import fechas
 from app.modules.metricas.schemas import (
-    MermaDeInsumo,
+    MermaDetalle,
     MermaPorMotivo,
     MermasRead,
     PuntoDeVentas,
@@ -21,7 +21,6 @@ from app.modules.metricas.schemas import (
     VentasRead,
 )
 from app.modules.metricas.uow import MetricasUnitOfWork
-from app.modules.productos.models import MovimientoStock
 
 CENTAVO = Decimal("0.01")
 ESTADOS_PEDIDO = ("PENDIENTE", "CONFIRMADO", "EN_PREPARACION", "EN_CAMINO", "ENTREGADO", "CANCELADO")
@@ -120,12 +119,14 @@ def stock_bajo(uow: MetricasUnitOfWork, dias: int) -> StockBajoRead:
         )
 
 
-def _mermas_de_insumos(filas) -> list[MermaPorMotivo]:
-    """Agrupa por motivo y unidad (no se suman kilos con unidades) y deja el detalle de cada insumo."""
-    grupos: dict[tuple[str, str], list[MermaDeInsumo]] = {}
-    for motivo, ingrediente_id, nombre, unidad, cantidad, movimientos in filas:
+def _mermas_con_detalle(filas) -> list[MermaPorMotivo]:
+    """Agrupa por motivo y unidad (no se suman kilos con unidades) y deja el detalle de cada insumo o producto.
+
+    Cada fila es (motivo, id, nombre, unidad, cantidad, movimientos); la unidad es None en los productos."""
+    grupos: dict[tuple[str, str | None], list[MermaDetalle]] = {}
+    for motivo, item_id, nombre, unidad, cantidad, movimientos in filas:
         grupos.setdefault((motivo, unidad), []).append(
-            MermaDeInsumo(ingrediente_id=ingrediente_id, nombre=nombre, cantidad=cantidad, movimientos=movimientos)
+            MermaDetalle(id=item_id, nombre=nombre, cantidad=cantidad, movimientos=movimientos)
         )
     resultado = []
     for (motivo, unidad), detalle in grupos.items():
@@ -151,15 +152,12 @@ def mermas(
         inicio, fin = _rango(desde, hasta, zona, ahora or utcnow())
         instante_desde, instante_hasta = fechas.limites_del_rango(inicio, fin, zona)
 
-        def por_motivo(modelo):
-            return [
-                MermaPorMotivo(motivo=m, cantidad=c, movimientos=n)
-                for m, c, n in uow.metricas.mermas(modelo, instante_desde, instante_hasta)
-            ]
-
         return MermasRead(
             desde=inicio,
             hasta=fin,
-            productos=por_motivo(MovimientoStock),
-            insumos=_mermas_de_insumos(uow.metricas.mermas_de_insumos(instante_desde, instante_hasta)),
+            productos=_mermas_con_detalle(
+                (motivo, pid, nombre, None, cantidad, n)
+                for motivo, pid, nombre, cantidad, n in uow.metricas.mermas_de_productos(instante_desde, instante_hasta)
+            ),
+            insumos=_mermas_con_detalle(uow.metricas.mermas_de_insumos(instante_desde, instante_hasta)),
         )

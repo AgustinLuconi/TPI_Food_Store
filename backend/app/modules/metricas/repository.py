@@ -131,18 +131,22 @@ class MetricasRepository:
         )
         return list(self.session.exec(stmt).all())  # type: ignore[arg-type]
 
-    def mermas(self, modelo: Any, desde: datetime, hasta: datetime) -> list[tuple[str, Decimal, int]]:
-        """(motivo, cantidad total, cantidad de movimientos) de las MERMA del período, la mayor primero."""
-        total = func.sum(modelo.cantidad)
-        motivo = case((modelo.motivo.is_(None), "SIN_MOTIVO"), else_=modelo.motivo)
+    def mermas_de_productos(self, desde: datetime, hasta: datetime) -> list[tuple[str, int, str, Decimal, int]]:
+        """(motivo, producto_id, nombre, cantidad, movimientos) de las MERMA de productos del período.
+
+        Una fila por motivo y producto; el servicio las agrupa por motivo. Cuentan también los productos dados
+        de baja: la pérdida ocurrió igual."""
+        total = func.sum(MovimientoStock.cantidad)
+        motivo = case((MovimientoStock.motivo.is_(None), "SIN_MOTIVO"), else_=MovimientoStock.motivo)
         stmt = (
-            select(motivo, total, func.count())
+            select(motivo, Producto.id, Producto.nombre, total, func.count())
+            .select_from(MovimientoStock)
+            .join(Producto, Producto.id == MovimientoStock.producto_id)  # type: ignore[arg-type]
             .where(
-                modelo.tipo_movimiento == TipoMovimiento.MERMA,
-                modelo.fecha_registro >= desde,
-                modelo.fecha_registro < hasta,
+                MovimientoStock.tipo_movimiento == TipoMovimiento.MERMA,
+                MovimientoStock.fecha_registro >= desde,
+                MovimientoStock.fecha_registro < hasta,
             )
-            .group_by(motivo)
-            .order_by(total.desc(), motivo)
+            .group_by(motivo, Producto.id, Producto.nombre)
         )
         return list(self.session.exec(stmt).all())  # type: ignore[arg-type]

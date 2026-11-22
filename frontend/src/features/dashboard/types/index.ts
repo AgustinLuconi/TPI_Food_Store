@@ -57,9 +57,9 @@ export interface StockBajo {
   lotes_por_vencer: LoteQueVence[]
 }
 
-/** Cuánto aportó un insumo al total de un motivo. */
-export interface MermaDeInsumo {
-  ingrediente_id: number
+/** Cuánto aportó un insumo o un producto al total de un motivo. */
+export interface MermaDetalle {
+  id: number
   nombre: string
   cantidad: string
   movimientos: number
@@ -71,8 +71,8 @@ export interface MermaPorMotivo {
   unidad_medida?: string | null
   cantidad: string
   movimientos: number
-  /** Los insumos que componen el total (vacío en los productos). */
-  detalle?: MermaDeInsumo[]
+  /** Los insumos (o productos) que componen el total y cuánto aportó cada uno. */
+  detalle?: MermaDetalle[]
 }
 
 export interface Mermas {

@@ -8,8 +8,8 @@ const rotura: MermaPorMotivo = {
   cantidad: '6.000',
   movimientos: 3,
   detalle: [
-    { ingrediente_id: 4, nombre: 'Cebolla', cantidad: '3.000', movimientos: 1 },
-    { ingrediente_id: 1, nombre: 'Harina', cantidad: '2.500', movimientos: 2 },
+    { id: 4, nombre: 'Cebolla', cantidad: '3.000', movimientos: 1 },
+    { id: 1, nombre: 'Harina', cantidad: '2.500', movimientos: 2 },
   ],
 }
 
@@ -29,5 +29,19 @@ describe('mermas del panel', () => {
   it('lista cuánto aportó cada insumo', () => {
     expect(textoDelDetalle(rotura)).toBe('Cebolla 3 KG · Harina 2,5 KG')
     expect(textoDelDetalle({ motivo: 'ROTURA', cantidad: '2', movimientos: 1 })).toBe('')
+  })
+
+  it('en los productos el aporte va sin unidad, porque se cuentan en unidades', () => {
+    const productos: MermaPorMotivo = {
+      motivo: 'ROTURA',
+      cantidad: '4.000',
+      movimientos: 3,
+      detalle: [
+        { id: 2, nombre: 'Pizza muzzarella', cantidad: '3.000', movimientos: 2 },
+        { id: 4, nombre: 'Empanada de carne', cantidad: '1.000', movimientos: 1 },
+      ],
+    }
+    expect(etiquetaDeMerma(productos)).toBe('ROTURA')
+    expect(textoDelDetalle(productos)).toBe('Pizza muzzarella 3 · Empanada de carne 1')
   })
 })

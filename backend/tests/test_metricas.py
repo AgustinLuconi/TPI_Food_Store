@@ -259,12 +259,17 @@ def test_mermas_por_motivo_separadas_en_productos_e_insumos(tienda):
             ("VENCIMIENTO", 1, 1),
         ]  # la mayor primero
         assert [(m["motivo"], D(m["cantidad"])) for m in r["insumos"]] == [("CONSUMO_INTERNO", D("0.5"))]
-        # Los insumos traen su unidad (RN-10) y el detalle de cuánto aportó cada uno; los productos no.
+        # Los insumos traen su unidad (RN-10); los productos, que se cuentan en unidades, no.
         assert [m["unidad_medida"] for m in r["insumos"]] == ["KG"]
+        assert all(m["unidad_medida"] is None for m in r["productos"])
+        # Ambos traen el detalle de cuánto aportó cada insumo o producto.
         assert [(d["nombre"], D(d["cantidad"]), d["movimientos"]) for d in r["insumos"][0]["detalle"]] == [
             ("Queso", D("0.5"), 1)
         ]
-        assert all(m["unidad_medida"] is None and m["detalle"] == [] for m in r["productos"])
+        assert [[(d["nombre"], D(d["cantidad"])) for d in m["detalle"]] for m in r["productos"]] == [
+            [("Pizza muzzarella", 3)],
+            [("Pizza muzzarella", 1)],
+        ]
 
 
 def test_mermas_de_insumos_se_agrupan_por_motivo_y_unidad_con_el_detalle_de_cada_insumo(tienda):
@@ -288,9 +293,28 @@ def test_mermas_de_insumos_se_agrupan_por_motivo_y_unidad_con_el_detalle_de_cada
     kg = [(d["nombre"], D(d["cantidad"]), d["movimientos"]) for d in insumos[0]["detalle"]]
     assert kg == [("Cebolla", 3, 1), ("Harina", 3, 2)]  # el de mayor aporte primero; a igual aporte, por nombre
     assert [(d["nombre"], D(d["cantidad"])) for d in insumos[1]["detalle"]] == [("Caja", 4)]
-    assert all(
-        m["unidad_medida"] is None and m["detalle"] == [] for m in t.admin.get(f"{M}/mermas").json()["productos"]
-    )
+    assert t.admin.get(f"{M}/mermas").json()["productos"] == []  # sin mermas de productos en este caso
+
+
+def test_mermas_de_productos_detallan_que_producto_aporto_cuanto(tienda):
+    t = tienda
+    mover(t.admin, "productos", t.pizza, "MERMA", "2", motivo="ROTURA")
+    mover(t.admin, "productos", t.pizza, "MERMA", "1", motivo="ROTURA")  # otro movimiento del mismo producto
+    mover(t.admin, "productos", t.empanada, "ENTRADA", "5")
+    mover(t.admin, "productos", t.empanada, "MERMA", "1", motivo="ROTURA")
+    mover(t.admin, "productos", t.empanada, "MERMA", "2", motivo="VENCIMIENTO")
+
+    productos = t.admin.get(f"{M}/mermas").json()["productos"]
+    assert [(m["motivo"], D(m["cantidad"]), m["movimientos"]) for m in productos] == [
+        ("ROTURA", 4, 3),  # pizza 2 + 1 y empanada 1
+        ("VENCIMIENTO", 2, 1),
+    ]
+    assert [(d["nombre"], D(d["cantidad"]), d["movimientos"]) for d in productos[0]["detalle"]] == [
+        ("Pizza muzzarella", 3, 2),  # el que más aportó primero
+        ("Empanada", 1, 1),
+    ]
+    assert [d["nombre"] for d in productos[1]["detalle"]] == ["Empanada"]
+    assert all(m["unidad_medida"] is None for m in productos)  # los productos se cuentan en unidades
 
 
 def test_mermas_respetan_el_periodo(tienda):

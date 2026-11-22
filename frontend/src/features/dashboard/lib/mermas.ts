@@ -12,7 +12,7 @@ export function cantidadConUnidad(cantidad: string | number, unidad?: string | n
   return unidad ? `${numero} ${unidad}` : numero
 }
 
-/** Qué insumos componen el total y cuánto aportó cada uno: "Cebolla 3 KG · Harina 3 KG". */
+/** Qué insumos (o productos) componen el total y cuánto aportó cada uno: "Cebolla 3 KG · Harina 3 KG". */
 export function textoDelDetalle(m: MermaPorMotivo): string {
   return (m.detalle ?? [])
     .map((d) => `${d.nombre} ${cantidadConUnidad(d.cantidad, m.unidad_medida)}`)

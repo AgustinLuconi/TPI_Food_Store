@@ -143,10 +143,10 @@ export function GraficoDeMermas({ titulo, mermas }: { titulo: string; mermas: Me
       titulo={titulo}
       descripcion={`${titulo}: cantidad perdida por motivo.`}
       vacio={mermas.length === 0}
-      detalle={conDetalle ? <DetalleDeMermas mermas={mermas} /> : undefined}
+      detalle={conDetalle ? <DetalleDeMermas titulo={titulo} mermas={mermas} /> : undefined}
       tabla={{
         columnas: conDetalle
-          ? ['Motivo', 'Cantidad', 'Movimientos', 'Insumos']
+          ? ['Motivo', 'Cantidad', 'Movimientos', 'Detalle']
           : ['Motivo', 'Cantidad', 'Movimientos'],
         filas: mermas.map((m) => [
           etiquetaDeMerma(m),
@@ -182,10 +182,10 @@ export function GraficoDeMermas({ titulo, mermas }: { titulo: string; mermas: Me
   )
 }
 
-/** El total de cada motivo y, debajo, cuánto aportó cada insumo (siempre visible, sin abrir la tabla). */
-function DetalleDeMermas({ mermas }: { mermas: MermaPorMotivo[] }) {
+/** El total de cada motivo y, debajo, cuánto aportó cada insumo o producto (siempre visible, sin abrir la tabla). */
+function DetalleDeMermas({ titulo, mermas }: { titulo: string; mermas: MermaPorMotivo[] }) {
   return (
-    <ul aria-label="Mermas de insumos: qué aportó cada uno" className="flex flex-col gap-2 text-sm">
+    <ul aria-label={`${titulo}: qué aportó cada uno`} className="flex flex-col gap-2 text-sm">
       {mermas.map((m) => (
         <li key={etiquetaDeMerma(m)}>
           <p className="font-semibold text-navy-900">
@@ -193,7 +193,7 @@ function DetalleDeMermas({ mermas }: { mermas: MermaPorMotivo[] }) {
           </p>
           <ul className="ml-4 list-disc text-navy-700">
             {(m.detalle ?? []).map((d) => (
-              <li key={d.ingrediente_id}>
+              <li key={d.id}>
                 {d.nombre}: {cantidadConUnidad(d.cantidad, m.unidad_medida)}
               </li>
             ))}
