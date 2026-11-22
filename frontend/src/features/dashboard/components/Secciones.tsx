@@ -297,9 +297,11 @@ function TablaDeStock({
                 <tr key={f.id}>
                   <td className="py-1.5 font-semibold">{f.nombre}</td>
                   <td className="py-1.5 font-semibold text-danger-700">
-                    {formatearCantidad(f.stock_disponible)}
+                    {formatearCantidad(f.stock_disponible)} {f.unidad_medida}
                   </td>
-                  <td className="py-1.5">{f.stock_minimo}</td>
+                  <td className="py-1.5">
+                    {f.stock_minimo} {f.unidad_medida}
+                  </td>
                 </tr>
               ))}
             </tbody>

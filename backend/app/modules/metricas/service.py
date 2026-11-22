@@ -103,8 +103,8 @@ def top_productos(uow: MetricasUnitOfWork, limite: int) -> list[TopProducto]:
 
 def _items(filas) -> list[StockBajoItem]:
     return [
-        StockBajoItem(id=i, nombre=n, stock_minimo=minimo, stock_real=real, stock_disponible=disp)
-        for i, n, minimo, real, disp in filas
+        StockBajoItem(id=i, nombre=n, unidad_medida=unidad, stock_minimo=minimo, stock_real=real, stock_disponible=disp)
+        for i, n, minimo, real, disp, unidad in filas
     ]
 
 

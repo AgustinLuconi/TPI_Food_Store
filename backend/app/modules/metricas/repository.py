@@ -5,7 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, case, cast, func
+from sqlalchemy import Date, case, cast, func, null
 from sqlmodel import Session, select
 
 from app.modules.inventario.repository import aporte
@@ -84,27 +84,32 @@ class MetricasRepository:
         return list(self.session.exec(stmt).all())  # type: ignore[arg-type]
 
     def _stock_bajo(
-        self, dueno: Any, movimiento: Any, columna_dueno: Any
-    ) -> list[tuple[int, str, int, Decimal, Decimal]]:
-        """Los activos con stock_disponible <= stock_minimo, del más comprometido al menos."""
+        self, dueno: Any, movimiento: Any, columna_dueno: Any, unidad: Any = None
+    ) -> list[tuple[int, str, int, Decimal, Decimal, str | None]]:
+        """Los activos con stock_disponible <= stock_minimo, del más comprometido al menos.
+
+        Devuelve (id, nombre, mínimo, real, disponible, unidad); la unidad es None para lo que no la tiene."""
         real = func.coalesce(func.sum(aporte(movimiento, SIGNO_REAL)), 0)
         disponible = func.coalesce(func.sum(aporte(movimiento, SIGNO_DISPONIBLE)), 0)
+        unidad_col = unidad if unidad is not None else null()
         stmt = (
-            select(dueno.id, dueno.nombre, dueno.stock_minimo, real, disponible)
+            select(dueno.id, dueno.nombre, dueno.stock_minimo, real, disponible, unidad_col)
             .select_from(dueno)
             .outerjoin(movimiento, columna_dueno == dueno.id)
             .where(dueno.deleted_at.is_(None))
-            .group_by(dueno.id, dueno.nombre, dueno.stock_minimo)
+            .group_by(dueno.id, dueno.nombre, dueno.stock_minimo, *([unidad] if unidad is not None else []))
             .having(disponible <= dueno.stock_minimo)
             .order_by(disponible - dueno.stock_minimo, dueno.nombre)
         )
         return list(self.session.exec(stmt).all())  # type: ignore[arg-type]
 
-    def productos_bajo_minimo(self) -> list[tuple[int, str, int, Decimal, Decimal]]:
+    def productos_bajo_minimo(self) -> list[tuple[int, str, int, Decimal, Decimal, str | None]]:
         return self._stock_bajo(Producto, MovimientoStock, MovimientoStock.producto_id)
 
-    def ingredientes_bajo_minimo(self) -> list[tuple[int, str, int, Decimal, Decimal]]:
-        return self._stock_bajo(Ingrediente, MovimientoIngrediente, MovimientoIngrediente.ingrediente_id)
+    def ingredientes_bajo_minimo(self) -> list[tuple[int, str, int, Decimal, Decimal, str | None]]:
+        return self._stock_bajo(
+            Ingrediente, MovimientoIngrediente, MovimientoIngrediente.ingrediente_id, Ingrediente.unidad_medida
+        )
 
     def mermas(self, modelo: Any, desde: datetime, hasta: datetime) -> list[tuple[str, Decimal, int]]:
         """(motivo, cantidad total, cantidad de movimientos) de las MERMA del período, la mayor primero."""

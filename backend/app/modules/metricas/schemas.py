@@ -48,6 +48,8 @@ class TopProducto(BaseModel):
 class StockBajoItem(BaseModel):
     id: int
     nombre: str
+    # Solo los insumos tienen unidad (RN-10); un producto se cuenta en unidades y no la lleva.
+    unidad_medida: str | None = None
     stock_minimo: int
     stock_real: Decimal
     stock_disponible: Decimal

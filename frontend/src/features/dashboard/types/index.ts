@@ -33,6 +33,8 @@ export interface TopProducto {
 export interface ItemStockBajo {
   id: number
   nombre: string
+  /** Solo los insumos tienen unidad (RN-10); un producto se cuenta en unidades. */
+  unidad_medida?: string | null
   stock_minimo: number
   stock_real: string
   stock_disponible: string

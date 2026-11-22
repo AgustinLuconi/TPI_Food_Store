@@ -207,6 +207,10 @@ def test_stock_bajo_compara_el_disponible_con_el_minimo(tienda):
 
     # los insumos sin stock (mínimo 0) también cuentan: 0 <= 0
     assert {"Queso", "Harina"} <= nombres(r, "insumos")
+    # Los insumos traen su unidad (RN-10) para poder leer las cantidades; los productos no la tienen.
+    unidades = {x["nombre"]: x["unidad_medida"] for x in r["insumos"]}
+    assert unidades["Queso"] == "KG" and unidades["Harina"] == "KG"
+    assert all(x["unidad_medida"] is None for x in r["productos"])
     mover(t.admin, "ingredientes", t.queso, "ENTRADA", "5")
     assert "Queso" not in nombres(t.admin.get(f"{M}/stock-bajo").json(), "insumos")
 
