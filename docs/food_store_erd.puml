@@ -246,9 +246,10 @@ package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
       receta propia (RecetaIngrediente) y
       OrdenProduccion previa. Resuelve el caso
       de producciones intermedias (BOM multiescala).
-      unidad_medida (agregado al ERD de la catedra): la
-      unica unidad del ingrediente (RN-10). Las recetas la
-      toman de aca y el stock se expresa en ella.
+      unidad_medida (cambio respecto del ERD de la catedra):
+      la unica unidad del ingrediente (RN-10). Las recetas
+      (ProductoIngrediente y RecetaIngrediente) ya no la
+      guardan: la leen de aca. El stock se expresa en ella.
     end note
 
     class ProductoIngrediente <<Link>> {
@@ -257,7 +258,6 @@ package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
         + ingrediente_id       : BIGINT              {PK, FK -> Ingrediente.id}
         .. Receta (BOM nivel venta) ..
         + cantidad_requerida   : DECIMAL(10,3)       {NN, DEFAULT 1, CHECK > 0}
-        + unidad_medida        : VARCHAR(10)         {NN, DEFAULT 'UN'}
         .. Personalizacion ..
         + es_removible         : BOOLEAN             {NN, DEFAULT true}
     }
@@ -268,7 +268,6 @@ package "Dominio 2 - Catalogo & Inventario" #E3F2FD {
         + componente_id        : BIGINT              {PK, FK -> Ingrediente.id}
         .. Receta (BOM nivel insumo) ..
         + cantidad_requerida   : DECIMAL(10,3)       {NN, CHECK > 0}
-        + unidad_medida        : VARCHAR(10)         {NN, DEFAULT 'UN'}
     }
     note bottom of RecetaIngrediente
       BOM recursiva entre insumos.

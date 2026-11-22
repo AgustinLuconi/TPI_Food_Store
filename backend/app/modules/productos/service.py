@@ -77,7 +77,7 @@ def _producto_read(uow: ProductosUnitOfWork, producto: Producto, *, con_stock: b
             nombre=ing.nombre,
             es_alergeno=ing.es_alergeno,
             cantidad_requerida=fila.cantidad_requerida,
-            unidad_medida=fila.unidad_medida,
+            unidad_medida=ing.unidad_medida,  # RN-10: la unidad vive solo en el ingrediente
             es_removible=fila.es_removible,
         )
         for fila, ing in receta
@@ -224,11 +224,12 @@ def subir_imagen(uow: ProductosUnitOfWork, producto_id: int, contenido: bytes) -
 # ----------------------------------------------------------------------------------------------
 
 
-def _unidad_de_receta(ingrediente: Ingrediente, enviada: str | None) -> str:
-    """RN-10: la unidad de un ingrediente es la que se definió al crearlo; las recetas la toman de ahí.
+def _validar_unidad(ingrediente: Ingrediente, enviada: str | None) -> None:
+    """RN-10: la unidad de un ingrediente es la que se definió al crearlo y es la única fuente: las recetas no la
+    guardan, la leen del ingrediente.
 
-    El cliente puede omitirla. Si la envía y es otra, se rechaza: la regla se cumple aunque se llame a la API
-    directamente, sin pasar por el formulario que ya muestra la unidad bloqueada.
+    El cliente puede omitirla en la receta. Si la envía y es otra, se rechaza: la regla se cumple aunque se llame a
+    la API directamente, sin pasar por el formulario que ya muestra la unidad bloqueada.
     """
     if enviada is not None and enviada != ingrediente.unidad_medida:
         raise ValidationError(
@@ -236,7 +237,6 @@ def _unidad_de_receta(ingrediente: Ingrediente, enviada: str | None) -> str:
             code="UNIT_MISMATCH",
             field="unidad_medida",
         )
-    return ingrediente.unidad_medida
 
 
 def _ingredientes_validos(uow: ProductosUnitOfWork, ids: list[int]) -> dict[int, Ingrediente]:
@@ -269,9 +269,8 @@ def reemplazar_receta_producto(
     with uow:
         producto = _obtener_producto(uow, producto_id)
         ingredientes = _ingredientes_validos(uow, [i.ingrediente_id for i in datos.items])
-        unidades = {
-            i.ingrediente_id: _unidad_de_receta(ingredientes[i.ingrediente_id], i.unidad_medida) for i in datos.items
-        }
+        for item in datos.items:
+            _validar_unidad(ingredientes[item.ingrediente_id], item.unidad_medida)
         uow.recetas.reemplazar_de_producto(
             producto_id,
             [
@@ -279,7 +278,6 @@ def reemplazar_receta_producto(
                     producto_id=producto_id,
                     ingrediente_id=i.ingrediente_id,
                     cantidad_requerida=i.cantidad_requerida,
-                    unidad_medida=unidades[i.ingrediente_id],
                     es_removible=i.es_removible,
                 )
                 for i in datos.items
@@ -406,7 +404,7 @@ def _receta_ingrediente_read(uow: ProductosUnitOfWork, padre_id: int) -> list[Re
             componente_id=ing.id,  # type: ignore[arg-type]
             nombre=ing.nombre,
             cantidad_requerida=fila.cantidad_requerida,
-            unidad_medida=fila.unidad_medida,
+            unidad_medida=ing.unidad_medida,
         )
         for fila, ing in uow.recetas.de_ingrediente(padre_id)
     ]
@@ -443,9 +441,8 @@ def reemplazar_receta_ingrediente(
                 code="RECIPE_CYCLE",
                 field="items",
             )
-        unidades = {
-            i.componente_id: _unidad_de_receta(componentes[i.componente_id], i.unidad_medida) for i in datos.items
-        }
+        for item in datos.items:
+            _validar_unidad(componentes[item.componente_id], item.unidad_medida)
         uow.recetas.reemplazar_de_ingrediente(
             ingrediente_id,
             [
@@ -453,7 +450,6 @@ def reemplazar_receta_ingrediente(
                     ingrediente_padre_id=ingrediente_id,
                     componente_id=i.componente_id,
                     cantidad_requerida=i.cantidad_requerida,
-                    unidad_medida=unidades[i.componente_id],
                 )
                 for i in datos.items
             ],

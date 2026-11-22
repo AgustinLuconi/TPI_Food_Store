@@ -82,7 +82,7 @@ def test_orden_produccion_exige_exactamente_una_salida(session_factory):
             "insert into horario_operativo (dia_semana, hora_apertura, hora_cierre) values (7, '10:00', '20:00')",
             "ck_horario_dia_semana",
         ),
-        ("insert into receta_ingrediente values (1, 1, 1, 'UN')", "ck_receta_padre_distinto_componente"),
+        ("insert into receta_ingrediente values (1, 1, 1)", "ck_receta_padre_distinto_componente"),
         (
             "insert into movimiento_ingrediente (ingrediente_id, tipo_movimiento, cantidad) values (1, 'ENTRADA', 0)",
             "ck_mov_ingrediente_cantidad",

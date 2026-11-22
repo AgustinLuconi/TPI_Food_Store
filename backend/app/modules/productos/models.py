@@ -102,7 +102,6 @@ class ProductoIngrediente(SQLModel, table=True):
     cantidad_requerida: Decimal = Field(
         default=Decimal("1"), sa_type=Numeric(10, 3), nullable=False, sa_column_kwargs={"server_default": text("1")}
     )
-    unidad_medida: str = Field(default="UN", max_length=10, nullable=False, sa_column_kwargs={"server_default": "UN"})
     es_removible: bool = Field(default=True, nullable=False, sa_column_kwargs={"server_default": text("true")})
 
 
@@ -120,7 +119,6 @@ class RecetaIngrediente(SQLModel, table=True):
     )
     componente_id: int = Field(sa_type=BigInteger, primary_key=True, foreign_key="ingrediente.id", ondelete="RESTRICT")
     cantidad_requerida: Decimal = Field(sa_type=Numeric(10, 3), nullable=False)
-    unidad_medida: str = Field(default="UN", max_length=10, nullable=False, sa_column_kwargs={"server_default": "UN"})
 
 
 class Lote(SQLModel, table=True):
