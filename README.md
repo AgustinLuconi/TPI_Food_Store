@@ -224,14 +224,14 @@ Tarjetas de prueba (el resultado lo decide el **nombre del titular**): `APRO` ap
 ```bash
 # Backend (requiere la base levantada): crea sola la base de prueba `foodstore_test`, aplica las migraciones y siembra los datos.
 cd backend
-pytest                               # 267 tests (incluye 4 de concurrencia con hilos)
+pytest                               # 268 tests (incluye 4 de concurrencia con hilos)
 pytest --cov=app                     # cobertura (98 %)
 ruff check . && ruff format --check .
 alembic check                        # modelos y migraciones no divergen
 
 # Frontend
 cd frontend
-npm run lint && npm run build && npm test      # 54 tests
+npm run lint && npm run build && npm test      # 57 tests
 ```
 
 Los tests del backend corren cada caso dentro de una transacción que se revierte, contra PostgreSQL
@@ -307,6 +307,7 @@ Cosas que la especificación no definía o que se resolvieron de forma propia. C
 | RN-10 (unidad) — **cambio al ERD** | La spec exige una sola unidad por ingrediente pero no dice dónde guardarla, y el plan de trabajo dejaba la duda como consulta al profesor (proponía deducirla de la primera receta). Se decidió que **la unidad viva solo en el ingrediente**: `ingrediente.unidad_medida` (`VARCHAR(10)`, `NOT NULL`, por defecto `UN`), que se elige al crearlo. Las tablas de recetas (`ProductoIngrediente` y `RecetaIngrediente`) **ya no tienen `unidad_medida`**: la leen del ingrediente por su `ingrediente_id`, igual que los movimientos de stock, así que no hay copias que puedan desfasarse. La API de recetas sigue devolviendo `unidad_medida` (la del ingrediente) y, si recibe otra distinta, responde 422 `UNIT_MISMATCH`. Con recetas o stock cargados la unidad no se puede cambiar (409 `UNIT_LOCKED`), porque las cantidades existentes se leerían en otra unidad. El stock se muestra con su unidad. Son los únicos cambios al modelo de la cátedra (una columna agregada y dos quitadas): se actualizaron `docs/food_store_erd.puml` y su `.svg` para mantener la consistencia con las migraciones (CE-09). La migración `0002` rellena los ingredientes existentes con la unidad que ya usaban sus recetas y la `0003` quita la columna de las recetas. Si el profesor prefiere el modelo original, basta con revertir esos commits. |
 | Imágenes | Se valida el tipo por la firma del archivo (JPEG, PNG, WEBP), máximo 2 MB, nombre UUID; en la base solo queda la URL `/media/productos/<uuid>.ext`. En desarrollo el frontend le antepone el origen del backend. |
 | `stock_cantidad` | No se materializa: el stock sale siempre de los ledgers. |
+| Mermas de insumos | La spec define las mermas como «suma de MERMA agrupada por motivo». Para los insumos, que se miden en distintas unidades (RN-10), un motivo con insumos en KG y en UN se muestra en una fila por unidad (por ejemplo «ROTURA (KG)» y «ROTURA (UN)»), porque kilos y unidades no se pueden sumar. Cada fila trae además el detalle de qué insumos la componen y cuánto aportó cada uno. Los productos no cambian. La lista de stock bajo de insumos también muestra la unidad. |
 | Stock visible | `stock_real` y `stock_disponible` aparecen en el catálogo solo para ADMIN y STOCK; el público ve únicamente `disponible`. |
 | Movimiento manual que resta | Una MERMA o un ajuste negativo no puede tocar lo ya reservado: se compara contra el stock disponible (409 `INSUFFICIENT_STOCK`). |
 | Lotes | Una entrada con lote exige código y vencimiento juntos, no admite vencimientos pasados ni códigos repetidos del mismo producto. Los lotes vencidos no se venden y se dan de baja con una merma por vencimiento. |

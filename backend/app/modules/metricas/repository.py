@@ -111,6 +111,26 @@ class MetricasRepository:
             Ingrediente, MovimientoIngrediente, MovimientoIngrediente.ingrediente_id, Ingrediente.unidad_medida
         )
 
+    def mermas_de_insumos(self, desde: datetime, hasta: datetime) -> list[tuple[str, int, str, str, Decimal, int]]:
+        """(motivo, ingrediente_id, nombre, unidad, cantidad, movimientos) de las MERMA de insumos del período.
+
+        Una fila por motivo e insumo; el servicio las agrupa por motivo y unidad. Cuentan también los insumos dados
+        de baja: la pérdida ocurrió igual."""
+        total = func.sum(MovimientoIngrediente.cantidad)
+        motivo = case((MovimientoIngrediente.motivo.is_(None), "SIN_MOTIVO"), else_=MovimientoIngrediente.motivo)
+        stmt = (
+            select(motivo, Ingrediente.id, Ingrediente.nombre, Ingrediente.unidad_medida, total, func.count())
+            .select_from(MovimientoIngrediente)
+            .join(Ingrediente, Ingrediente.id == MovimientoIngrediente.ingrediente_id)  # type: ignore[arg-type]
+            .where(
+                MovimientoIngrediente.tipo_movimiento == TipoMovimiento.MERMA,
+                MovimientoIngrediente.fecha_registro >= desde,
+                MovimientoIngrediente.fecha_registro < hasta,
+            )
+            .group_by(motivo, Ingrediente.id, Ingrediente.nombre, Ingrediente.unidad_medida)
+        )
+        return list(self.session.exec(stmt).all())  # type: ignore[arg-type]
+
     def mermas(self, modelo: Any, desde: datetime, hasta: datetime) -> list[tuple[str, Decimal, int]]:
         """(motivo, cantidad total, cantidad de movimientos) de las MERMA del período, la mayor primero."""
         total = func.sum(modelo.cantidad)

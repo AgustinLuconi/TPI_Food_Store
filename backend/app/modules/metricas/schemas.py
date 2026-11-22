@@ -62,10 +62,23 @@ class StockBajoRead(BaseModel):
     lotes_por_vencer: list[LotePorVencer]
 
 
-class MermaPorMotivo(BaseModel):
-    motivo: str
+class MermaDeInsumo(BaseModel):
+    """Cuánto aportó un insumo al total de un motivo."""
+
+    ingrediente_id: int
+    nombre: str
     cantidad: Decimal
     movimientos: int
+
+
+class MermaPorMotivo(BaseModel):
+    motivo: str
+    # Solo en los insumos: kilos y unidades no se suman (RN-10), así que un motivo con insumos de distinta unidad
+    # aparece en una fila por unidad. `detalle` dice qué insumos componen el total y cuánto aportó cada uno.
+    unidad_medida: str | None = None
+    cantidad: Decimal
+    movimientos: int
+    detalle: list[MermaDeInsumo] = []
 
 
 class MermasRead(BaseModel):

@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { formatearDinero } from '@/shared/lib/formato'
 import { dineroCompacto, fechaCorta } from '../lib/fechas'
+import { cantidadConUnidad, etiquetaDeMerma, textoDelDetalle } from '../lib/mermas'
 import type { MermaPorMotivo, PuntoDeVentas, TopProducto } from '../types'
 import { ChartCard } from './Bloques'
 
@@ -135,15 +136,24 @@ export function GraficoPorEstado({
 }
 
 export function GraficoDeMermas({ titulo, mermas }: { titulo: string; mermas: MermaPorMotivo[] }) {
-  const datos = mermas.map((m) => ({ motivo: m.motivo, cantidad: Number(m.cantidad) }))
+  const datos = mermas.map((m) => ({ motivo: etiquetaDeMerma(m), cantidad: Number(m.cantidad) }))
+  const conDetalle = mermas.some((m) => (m.detalle ?? []).length > 0)
   return (
     <ChartCard
       titulo={titulo}
       descripcion={`${titulo}: cantidad perdida por motivo.`}
       vacio={mermas.length === 0}
+      detalle={conDetalle ? <DetalleDeMermas mermas={mermas} /> : undefined}
       tabla={{
-        columnas: ['Motivo', 'Cantidad', 'Movimientos'],
-        filas: mermas.map((m) => [m.motivo, Number(m.cantidad), m.movimientos]),
+        columnas: conDetalle
+          ? ['Motivo', 'Cantidad', 'Movimientos', 'Insumos']
+          : ['Motivo', 'Cantidad', 'Movimientos'],
+        filas: mermas.map((m) => [
+          etiquetaDeMerma(m),
+          cantidadConUnidad(m.cantidad, m.unidad_medida),
+          m.movimientos,
+          ...(conDetalle ? [textoDelDetalle(m)] : []),
+        ]),
       }}
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -169,5 +179,27 @@ export function GraficoDeMermas({ titulo, mermas }: { titulo: string; mermas: Me
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
+  )
+}
+
+/** El total de cada motivo y, debajo, cuánto aportó cada insumo (siempre visible, sin abrir la tabla). */
+function DetalleDeMermas({ mermas }: { mermas: MermaPorMotivo[] }) {
+  return (
+    <ul aria-label="Mermas de insumos: qué aportó cada uno" className="flex flex-col gap-2 text-sm">
+      {mermas.map((m) => (
+        <li key={etiquetaDeMerma(m)}>
+          <p className="font-semibold text-navy-900">
+            {etiquetaDeMerma(m)} · {cantidadConUnidad(m.cantidad, m.unidad_medida)}
+          </p>
+          <ul className="ml-4 list-disc text-navy-700">
+            {(m.detalle ?? []).map((d) => (
+              <li key={d.ingrediente_id}>
+                {d.nombre}: {cantidadConUnidad(d.cantidad, m.unidad_medida)}
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
   )
 }

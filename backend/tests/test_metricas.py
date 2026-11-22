@@ -11,6 +11,7 @@ from app.modules.metricas.fechas import dias_entre, hoy_local, limites_del_dia, 
 from app.modules.metricas.uow import MetricasUnitOfWork
 from tests.helpers import API
 from tests.pedidos_helpers import Tienda, linea, pagar, pedido_ok
+from tests.test_catalogo import ingrediente
 from tests.test_inventario import D, mover
 
 M = f"{API}/admin/metrics"
@@ -258,6 +259,38 @@ def test_mermas_por_motivo_separadas_en_productos_e_insumos(tienda):
             ("VENCIMIENTO", 1, 1),
         ]  # la mayor primero
         assert [(m["motivo"], D(m["cantidad"])) for m in r["insumos"]] == [("CONSUMO_INTERNO", D("0.5"))]
+        # Los insumos traen su unidad (RN-10) y el detalle de cuánto aportó cada uno; los productos no.
+        assert [m["unidad_medida"] for m in r["insumos"]] == ["KG"]
+        assert [(d["nombre"], D(d["cantidad"]), d["movimientos"]) for d in r["insumos"][0]["detalle"]] == [
+            ("Queso", D("0.5"), 1)
+        ]
+        assert all(m["unidad_medida"] is None and m["detalle"] == [] for m in r["productos"])
+
+
+def test_mermas_de_insumos_se_agrupan_por_motivo_y_unidad_con_el_detalle_de_cada_insumo(tienda):
+    t = tienda
+    caja = ingrediente(t.admin, "Caja", unidad_medida="UN")["id"]
+    for i in (t.queso, t.harina, t.cebolla, caja):
+        assert mover(t.admin, "ingredientes", i, "ENTRADA", "10").status_code == 201
+    mover(t.admin, "ingredientes", t.harina, "MERMA", "2", motivo="ROTURA")
+    mover(t.admin, "ingredientes", t.cebolla, "MERMA", "3", motivo="ROTURA")  # mismo motivo y unidad: se suma
+    mover(t.admin, "ingredientes", t.harina, "MERMA", "1", motivo="ROTURA")  # otro movimiento del mismo insumo
+    mover(t.admin, "ingredientes", caja, "MERMA", "4", motivo="ROTURA")  # UN: no se suma con los KG
+    mover(t.admin, "ingredientes", t.queso, "MERMA", "0.5", motivo="VENCIMIENTO")
+
+    insumos = t.admin.get(f"{M}/mermas").json()["insumos"]
+    resumen = [(m["motivo"], m["unidad_medida"], D(m["cantidad"]), m["movimientos"]) for m in insumos]
+    assert resumen == [
+        ("ROTURA", "KG", 6, 3),  # harina 2 + 1 y cebolla 3
+        ("ROTURA", "UN", 4, 1),
+        ("VENCIMIENTO", "KG", D("0.5"), 1),
+    ]
+    kg = [(d["nombre"], D(d["cantidad"]), d["movimientos"]) for d in insumos[0]["detalle"]]
+    assert kg == [("Cebolla", 3, 1), ("Harina", 3, 2)]  # el de mayor aporte primero; a igual aporte, por nombre
+    assert [(d["nombre"], D(d["cantidad"])) for d in insumos[1]["detalle"]] == [("Caja", 4)]
+    assert all(
+        m["unidad_medida"] is None and m["detalle"] == [] for m in t.admin.get(f"{M}/mermas").json()["productos"]
+    )
 
 
 def test_mermas_respetan_el_periodo(tienda):

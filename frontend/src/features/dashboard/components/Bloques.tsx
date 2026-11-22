@@ -27,10 +27,19 @@ interface ChartCardProps {
   /** Encabezados y filas de la tabla alternativa con los mismos datos. */
   tabla: { columnas: string[]; filas: (string | number)[][] }
   vacio?: boolean
+  /** Contenido extra siempre visible debajo del gráfico (por ejemplo, el desglose de lo que suma cada barra). */
+  detalle?: ReactNode
 }
 
 /** Un gráfico con su equivalente en tabla: los datos no dependen de poder ver colores ni formas. */
-export function ChartCard({ titulo, descripcion, children, tabla, vacio = false }: ChartCardProps) {
+export function ChartCard({
+  titulo,
+  descripcion,
+  children,
+  tabla,
+  vacio = false,
+  detalle,
+}: ChartCardProps) {
   return (
     <Card className="flex flex-col gap-3">
       <h2 className="font-bold text-navy-900">{titulo}</h2>
@@ -41,6 +50,7 @@ export function ChartCard({ titulo, descripcion, children, tabla, vacio = false 
           {children}
         </div>
       )}
+      {!vacio && detalle}
       {!vacio && (
         <details className="text-sm">
           <summary className="cursor-pointer font-semibold text-accent-700">

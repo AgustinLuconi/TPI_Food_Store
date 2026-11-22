@@ -57,10 +57,22 @@ export interface StockBajo {
   lotes_por_vencer: LoteQueVence[]
 }
 
-export interface MermaPorMotivo {
-  motivo: string
+/** Cuánto aportó un insumo al total de un motivo. */
+export interface MermaDeInsumo {
+  ingrediente_id: number
+  nombre: string
   cantidad: string
   movimientos: number
+}
+
+export interface MermaPorMotivo {
+  motivo: string
+  /** Solo en los insumos: kilos y unidades no se suman, así que un motivo puede aparecer una vez por unidad. */
+  unidad_medida?: string | null
+  cantidad: string
+  movimientos: number
+  /** Los insumos que componen el total (vacío en los productos). */
+  detalle?: MermaDeInsumo[]
 }
 
 export interface Mermas {
